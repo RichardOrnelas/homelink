@@ -43,7 +43,6 @@ Things you may want to cover:
 5. create `infrastructure` directory
 
 #TODO: DNS and ACM cert
-Setup the Rails App
 Setup the CI/CD
 
 ## nice to hives
