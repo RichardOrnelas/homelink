@@ -229,6 +229,31 @@ data "aws_acm_certificate" "primary" {
   statuses = ["ISSUED"]
 }
 
+data "aws_route53_zone" "primary" {
+  name         = "deepseas.dev"
+  private_zone = false
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = data.aws_route53_zone.primary.zone_id
+  name    = "www.${data.aws_route53_zone.selected.name}"
+  type    = "A"
+  ttl     = "300"
+  records = ["10.0.0.1"]
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = data.aws_route53_zone.primary.zone_id
+  name = join(".", compact([terraform.workspace == "production" ? "" : terraform.workspace, "chainlink.deepseas.dev"]))
+  type    = "A"
+
+  alias {
+    name                   = aws_elb.web.dns_name
+    zone_id                = aws_elb.web.zone_id
+    evaluate_target_health = false
+  }
+}
+
 resource "aws_alb" "web" {
   name            = "${var.project}-${terraform.workspace}"
   internal        = false
@@ -467,3 +492,4 @@ data "aws_iam_policy_document" "grant" {
     }
   }
 }
+
