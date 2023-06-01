@@ -224,6 +224,11 @@ resource "aws_ssm_parameter" "APP_BUCKET" {
 }
 
 ### Application Load Balancer ###
+data "aws_acm_certificate" "primary" {
+  domain   = "chainlink.deepseas.dev"
+  statuses = ["ISSUED"]
+}
+
 resource "aws_alb" "web" {
   name            = "${var.project}-${terraform.workspace}"
   internal        = false
@@ -254,7 +259,7 @@ resource "aws_alb_listener" "https" {
   load_balancer_arn = aws_alb.web.arn
   port              = "443"
   protocol          = "HTTPS"
-  certificate_arn   = var.certificate_arn #TODO: get the cert
+  certificate_arn   = data.aws_acm_certificate.primary.arn
   ssl_policy        = "ELBSecurityPolicy-2016-08"
 
   default_action {
@@ -301,7 +306,7 @@ variable "queues" {
 
   default = [
     "main",
-    "high_priority"
+    "high"
   ]
 }
 
