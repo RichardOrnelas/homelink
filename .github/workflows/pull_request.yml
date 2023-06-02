@@ -181,9 +181,9 @@ jobs:
     concurrency:
       group: ${{ github.ref }}-test-env
       cancel-in-progress: true
-    defaults:
-      run:
-        working-directory: ${{ env.tf_actions_working_dir }}
+    # defaults:
+    #   run:
+    #     working-directory: ${{ env.tf_actions_working_dir }}
     permissions:
       pull-requests: write
     steps: 
