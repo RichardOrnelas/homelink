@@ -33,7 +33,7 @@ jobs:
         ports: ["6379:6379"]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@master
       - uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
@@ -87,7 +87,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@master
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -191,7 +191,7 @@ jobs:
       pull-requests: write
       contents: read
     steps: 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@master
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.4.6
