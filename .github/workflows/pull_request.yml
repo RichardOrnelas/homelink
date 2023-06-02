@@ -80,9 +80,9 @@ jobs:
     concurrency:
       group: ${{ github.ref }}-tf-plan
       cancel-in-progress: true
-    # defaults:
-    #   run:
-    #     working-directory: ${{ env.tf_actions_working_dir }}
+    defaults:
+      run:
+        working-directory: .infrastructure
     permissions:
       contents: read
       pull-requests: write
@@ -184,9 +184,9 @@ jobs:
     concurrency:
       group: ${{ github.ref }}-test-env
       cancel-in-progress: true
-    # defaults:
-    #   run:
-    #     working-directory: ${{ env.tf_actions_working_dir }}
+    defaults:
+      run:
+        working-directory: .infrastructure
     permissions:
       pull-requests: write
       contents: read
