@@ -121,7 +121,6 @@ jobs:
         continue-on-error: true
 
       - uses: actions/github-script@v6
-        if: github.event_name == 'pull_request'
         env:
           PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
         with:
@@ -213,7 +212,7 @@ jobs:
 
       - name: New Terraform Workspace
         id: workspace
-        run: terraform workspace new ${{ github.ref_name }}
+        run: terraform workspace new ${{ github.sha }}
 
 
       - name: Terraform Apply
