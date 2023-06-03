@@ -5,6 +5,10 @@ on:
     branches: ["main"]
     # types: [opened]
 
+defaults:
+  run:
+    if: ${{ ! github.event.pull_request.draft }}
+
 jobs:
   tests:
     name: Run Tests
