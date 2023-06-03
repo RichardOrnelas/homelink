@@ -1,0 +1,62 @@
+[
+  {
+    "name": "homelink-worker",
+    "image": "${image}",
+    "cpu": 512,
+    "memory": 1024,
+    "memoryReservation": 1024,
+    "portMappings": [
+      {
+        "containerPort": 8080,
+        "hostPort": 8080,
+        "protocol": "tcp"
+      }
+    ],
+    "command": [
+      "bundle",
+      "exec",
+      "shoryuken",
+      "-R",
+      "-C",
+      "config/shoryuken.yml"
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "homelink/${var.environment}/worker",
+        "awslogs-region": "${var.region}",
+        "awslogs-stream-prefix": "worker"
+      }
+    },
+    "environment": [
+      {
+        "name": "RAILS_ENV",
+        "value": "${var.rails_env}"
+      },
+      {
+        "name": "RAILS_LOG_TO_STDOUT",
+        "value": "true"
+      },
+      {
+        "name": "PORT",
+        "value": "8080"
+      },
+      {
+        "name": "DATABASE_URL",
+        "value": "${var.database_url}"
+      },
+      {
+        "name": "APP_BUCKET_NAME",
+        "value": "${var.app_bucket_name}"
+      },
+      {
+        "name": "DEFAULT_QUEUE",
+        "value": "${var.default_queue}"
+      },
+      {
+        "name": "VERSION",
+        "value": "${var.version}"
+      }
+    ]
+  }
+]

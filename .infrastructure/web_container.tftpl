@@ -1,0 +1,57 @@
+[
+  {
+    "name": "homelink-${environment}-web",
+    "image": "${image}",
+    "cpu": ${cpu},
+    "memory": ${mem},
+    "memoryReservation": ${mem},
+    "portMappings": [
+      {
+        "containerPort": 8080,
+        "hostPort": 8080,
+        "protocol": "tcp"
+      }
+    ],
+    "command": [
+      "bundle",
+      "exec",
+      "puma",
+      "-C",
+      "config/puma.rb"
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "homelink/${environment}/web",
+        "awslogs-region": "${region}",
+        "awslogs-stream-prefix": "web"
+      }
+    },
+    "environment": [
+      {
+        "name": "RAILS_ENV",
+        "value": "${rails_env}"
+      },
+      {
+        "name": "RAILS_LOG_TO_STDOUT",
+        "value": "true"
+      },
+      {
+        "name": "PORT",
+        "value": "8080"
+      },
+      {
+        "name": "DATABASE_URL",
+        "value": "${database_url}"
+      },
+      {
+        "name": "APP_BUCKET_NAME",
+        "value": "${app_bucket_name}"
+      },
+      {
+        "name": "DEFAULT_QUEUE",
+        "value": "${default_queue}"
+      }
+    ]
+  }
+]

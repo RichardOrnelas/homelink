@@ -1,8 +1,9 @@
-name: "New Pull Request Web App"
+name: "New Pull Request"
 
 on:
   pull_request:
     branches: ["main"]
+    types: [opened]
 
 jobs:
   tests:
@@ -125,10 +126,9 @@ jobs:
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            This is a multi-line test comment
-            #### Terraform Format and Style \ ${{ steps.fmt.outcome }}
-            #### Terraform Validation \ ${{ steps.validate.outcome }}
-            #### Terraform Plan \ ${{ steps.plan.outcome }}
+            #### Terraform Format and Style \n ${{ steps.fmt.outcome }}
+            #### Terraform Validation \n ${{ steps.validate.outcome }}
+            #### Terraform Plan \n ${{ steps.plan.outcome }}
           reactions: '+1'
 
   deploy_test_env:
@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.ref }}-test-env
-      cancel-in-progress: true
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: .infrastructure
@@ -155,7 +155,7 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
-          
+
       - name: Set short git commit SHA
         id: vars
         run: |
@@ -186,4 +186,5 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             The Test Environment has been deployed.
+            Preview available at ${{ steps.apply.outputs.www_fqdn}}
           reactions: '+1'
