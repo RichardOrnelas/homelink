@@ -8,7 +8,6 @@ on:
 jobs:
   tests:
     name: Run Tests
-    if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     permissions: 
       contents: read
@@ -126,6 +125,7 @@ jobs:
   
   build_docker_image:
     name: Build Docker Image
+    if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout"
@@ -183,6 +183,8 @@ jobs:
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.4.6
+          terraform_wrapper: false
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
