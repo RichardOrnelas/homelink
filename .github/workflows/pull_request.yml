@@ -278,7 +278,7 @@ jobs:
         run: |
           echo "Running task with Task Definition ARN ${{ needs.deploy_test_env.outputs.taskDef }}"
           TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
-          --task-definition ${{ needs.deploy_test_env.outputs.taskArn }} \
+          --task-definition ${{ needs.deploy_test_env.outputs.taskDef }} \
           --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_test_env.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_test_env.outputs.taskSG }}\"]}}" \
           --overrides "{\"containerOverrides\":[{\"name\":\"hive-tasks\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}" --output text --query tasks[0].taskArn)
           echo "Task started successfully. ARN: $TASK_ARN"
