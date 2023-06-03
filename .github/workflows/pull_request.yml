@@ -130,9 +130,49 @@ jobs:
             #### Terraform Validation \n ${{ steps.validate.outcome }}
             #### Terraform Plan \n ${{ steps.plan.outcome }}
           reactions: '+1'
+  
+  build_docker_image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v2
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: set up Docker Build
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver: docker-container
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      - name: build the Docker image and Push
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
 
   deploy_test_env:
     name: Deploy Test Environment
+    needs: terraform_plan
     if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     concurrency:
@@ -156,12 +196,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
 
-      - name: Set short git commit SHA
-        id: vars
-        run: |
-          calculatedSha=$(git rev-parse --short ${{ github.sha }})
-          echo "::set-output name=short_sha::$calculatedSha"
-
       - name: Terraform Init
         id: init
         run: terraform init
@@ -172,6 +206,8 @@ jobs:
 
       - name: Terraform Apply
         id: apply
+        env: 
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
         run: terraform apply --auto-approve
         continue-on-error: false
 
