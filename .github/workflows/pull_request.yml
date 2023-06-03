@@ -200,7 +200,7 @@ jobs:
         continue-on-error: true
 
       - name: Select Terraform Workspace
-        id: workspace_select
+        id: workspace_select 
         run: terraform workspace select "pr-${{ github.event.number }}"
         continue-on-error: true  
 
