@@ -270,7 +270,7 @@ jobs:
           aws-region: us-east-1
       
       - name: Test Task ARN
-        run: echo ${{needs.deploy_test_env.outputs}}
+        run: echo ${{join(needs.deploy_test_env.outputs.*, '\n')}}
 
       - name: Run Migration Task
         id: db-migration
