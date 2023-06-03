@@ -162,18 +162,13 @@ jobs:
           calculatedSha=$(git rev-parse --short ${{ github.sha }})
           echo "::set-output name=short_sha::$calculatedSha"
 
-      - name: Terraform fmt
-        id: fmt
-        run: terraform fmt -check
-        continue-on-error: false
-
       - name: Terraform Init
         id: init
         run: terraform init
 
       - name: New Terraform Workspace
         id: workspace
-        run: terraform workspace new ${{ steps.vars.outputs.short_sha }}
+        run: terraform workspace new "pr-${{ github.event.number }}"
 
       - name: Terraform Apply
         id: apply

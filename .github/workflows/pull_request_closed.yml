@@ -46,7 +46,7 @@ jobs:
 
       - name: Select Terraform Workspace
         id: workspace
-        run: terraform workspace select ${{ steps.vars.outputs.short_sha }}
+        run: terraform workspace select "pr-${{ github.event.number }}"
 
       - name: Terraform Destroy
         id: destroy
@@ -55,7 +55,7 @@ jobs:
 
       - name: Delete Terraform Workspace
         id: workspace-destroy
-        run: terraform workspace delete ${{ steps.vars.outputs.short_sha }} --auto-approve
+        run: terraform workspace delete "pr-${{ github.event.number }}" --auto-approve
         continue-on-error: false
       
       - name: Test Environment Dismantled Comment
