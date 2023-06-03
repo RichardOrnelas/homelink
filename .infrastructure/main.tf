@@ -404,6 +404,17 @@ resource "aws_ecs_service" "web" {
     security_groups  = [aws_security_group.ecs.id]
     assign_public_ip = false
   }
+
+  capacity_provider_strategy {
+    base              = 1
+    capacity_provider = "FARGATE"
+    weight            = 100
+  }
+
+  deployment_circuit_breaker {
+    enable   = false 
+    rollback = false 
+  }
 }
 
 resource "aws_ecs_task_definition" "web" {
@@ -453,6 +464,17 @@ resource "aws_ecs_service" "worker" {
     subnets          = data.aws_subnets.private.ids
     security_groups  = [aws_security_group.ecs.id]
     assign_public_ip = false
+  }
+
+  capacity_provider_strategy {
+    base              = 1
+    capacity_provider = "FARGATE"
+    weight            = 100
+  }
+
+  deployment_circuit_breaker {
+    enable   = false 
+    rollback = false 
   }
 }
 

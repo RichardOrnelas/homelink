@@ -1,4 +1,4 @@
-name: "Sandbox Environment"
+name: "Test Environment Cleanup"
 
 on:
   pull_request:
@@ -40,20 +40,28 @@ jobs:
           calculatedSha=$(git rev-parse --short ${{ github.sha }})
           echo "::set-output name=short_sha::$calculatedSha"
 
-      - name: Terraform fmt
-        id: fmt
-        run: terraform fmt -check
-        continue-on-error: false
-
       - name: Terraform Init
         id: init
         run: terraform init
 
-      - name: New Terraform Workspace
+      - name: Select Terraform Workspace
         id: workspace
-        run: terraform workspace new ${{ steps.vars.outputs.short_sha }}
+        run: terraform workspace select ${{ steps.vars.outputs.short_sha }}
 
-      - name: Terraform Apply
-        id: apply
-        run: terraform apply --auto-approve
+      - name: Terraform Destroy
+        id: destroy
+        run: terraform destroy --auto-approve
         continue-on-error: false
+
+      - name: Delete Terraform Workspace
+        id: workspace-destroy
+        run: terraform workspace delete ${{ steps.vars.outputs.short_sha }} --auto-approve
+        continue-on-error: false
+      
+      - name: Test Environment Dismantled Comment
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            The Test Environment has been dismantled.
+          reactions: '+1'

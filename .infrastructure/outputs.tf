@@ -37,3 +37,15 @@ output "target_group_arn" {
 output "www_fqdn" {
   value = aws_route53_record.www.fqdn
 }
+
+output "worker_task_def_arn" {
+  value = aws_ecs_task_definition.worker.arn
+}
+
+output "ecs_cluster_name" {
+  value = aws_ecs_cluster.primary.name
+}
+
+output "task_subnet" {
+  value = data.aws_subnets.private.ids[0]
+}

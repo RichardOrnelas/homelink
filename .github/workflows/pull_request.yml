@@ -180,6 +180,17 @@ jobs:
         run: terraform apply --auto-approve
         continue-on-error: false
 
+      - name: Run Migration Task
+        id: db-migration
+        run: |
+          echo "Running task with Task Definition ARN ${{ steps.apply.outputs.worker_task_def_arn }}
+          TASK_ARN=$(aws ecs run-task --cluster ${{ steps.apply.outputs.ecs_cluster_name }} --count 1 --launch-type FARGATE \
+          --task-definition ${{ steps.apply.outputs.worker_task_def_arn }} \
+          --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ steps.apply.outputs.task_subnet }}\"],\"securityGroups\":[\"${{ steps.apply.outputs.sg_ecs}}\"]}}" \
+          --overrides "{\"containerOverrides\":[{\"name\":\"hive-tasks\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:create\",\"db:migrate\"]}]}" --output text --query tasks[0].taskArn)
+          echo "Task started successfully. ARN: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster primary --tasks $TASK_ARN
+
       - name: Test Environment Deployed Comment
         uses: peter-evans/create-or-update-comment@v3
         with:

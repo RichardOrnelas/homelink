@@ -65,7 +65,7 @@ group :development, :test do
   gem 'dotenv-rails'
   gem 'byebug', platform: :mri
   gem 'rspec-rails', '~> 3.5'
-  gem 'factory_girl_rails'
+  gem 'factory_bot_rails'
   gem 'capybara'
   gem 'database_cleaner'
 end
