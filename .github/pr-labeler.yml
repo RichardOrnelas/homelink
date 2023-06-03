@@ -1,6 +1,12 @@
-migration: ['db/migrate/*', 'db/schema.rb']
-infrastructure: 'infrastrucure/**'
-backend: [ 'app/models/**', 'app/controllers/**']
-frontend: ['app/views/**']
-ci: ['.github/**']
-dependencies: ['Gemfile', 'package*']
+migration: 
+  - any: ['db/migrate/*', 'db/schema.rb']
+infrastructure: 
+  - 'infrastrucure/**'
+backend: 
+  - any: [ 'app/models/**', 'app/controllers/**']
+frontend: 
+  - 'app/views/**'
+ci: 
+  - '.github/**'
+dependencies: 
+  - any: ['Gemfile', 'package*']

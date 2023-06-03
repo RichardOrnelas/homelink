@@ -129,7 +129,7 @@ jobs:
             #### Terraform Validation
             ${{ steps.validate.outcome }}
             #### Terraform Plan 
-            ${{ steps.plan.outputs.stdout }}
+            ${{ steps.plan.outputs.outcome }}
           reactions: '+1'
   
   build_docker_image:
@@ -191,7 +191,7 @@ jobs:
       pull-requests: write
       contents: read
     outputs:
-      taskDef: ${{ steps.taskdef.outputs.output }}
+      taskDef: ${{ steps.taskdefz.outputs.output }}
       taskSubnet: ${{ steps.subnet.outputs.output }}
       taskSG: ${{ steps.securitygroup.outputs.output }}
       wwwFQDN: ${{ steps.wwwfqdn.outputs.output }}
@@ -256,6 +256,10 @@ jobs:
       - name: Get Cluster Name
         id: cluster
         run: echo "output=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+
+      - name: Task Defz
+        id: taskdefz
+        run: echo "output=$(terraform output -raw worker_task_def_arn)" >> "$GITHUB_OUTPUT"
 
 
   migration:
