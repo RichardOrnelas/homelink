@@ -154,7 +154,7 @@ resource "aws_db_instance" "primary" {
   auto_minor_version_upgrade   = true
   apply_immediately            = true
   copy_tags_to_snapshot        = true
-  skip_final_snapshot          = false
+  skip_final_snapshot          = terraform.workspace == "production" ? false : true
   final_snapshot_identifier    = "${var.project}-${terraform.workspace}-final"
   storage_encrypted            = true
   multi_az                     = terraform.workspace == "production" ? true : false
@@ -172,29 +172,6 @@ resource "aws_cloudwatch_log_group" "web" {
 resource "aws_cloudwatch_log_group" "worker" {
   name              = "${var.project}/${terraform.workspace}/worker"
   retention_in_days = 7
-}
-
-### ECS ###
-resource "aws_ecr_repository" "homelink" {
-  count                = terraform.workspace == "sandbox" ? 1 : 0
-  name                 = "homelink"
-  image_tag_mutability = "MUTABLE"
-}
-
-resource "aws_ecs_cluster" "primary" {
-  name = terraform.workspace
-}
-
-resource "aws_ecs_cluster_capacity_providers" "primary" {
-  cluster_name = aws_ecs_cluster.primary.name
-
-  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
-
-  default_capacity_provider_strategy {
-    base              = 1
-    weight            = 100
-    capacity_provider = "FARGATE"
-  }
 }
 
 ### SSM ###
@@ -330,7 +307,6 @@ resource "aws_sqs_queue" "queue" {
   sqs_managed_sse_enabled   = true
   redrive_policy            = "{\"deadLetterTargetArn\":\"${element(aws_sqs_queue.queue_dead.*.arn, count.index)}\",\"maxReceiveCount\":2}"
 
-
 }
 
 resource "aws_sqs_queue" "queue_dead" {
@@ -378,103 +354,152 @@ data "aws_iam_policy_document" "queue_policy" {
 }
 
 
-### IAM ROLES ###
-
-resource "aws_iam_role" "platform_service" {
-  name               = "tf-${var.project}-${terraform.workspace}"
-  assume_role_policy = data.aws_iam_policy_document.grant.json
+### ECS ###
+resource "aws_ecr_repository" "homelink" {
+  count                = terraform.workspace == "sandbox" ? 1 : 0
+  name                 = "homelink"
+  image_tag_mutability = "MUTABLE"
 }
 
-resource "aws_iam_role_policy" "platform_service_policy" {
-  name   = "${var.project}-service-policy"
-  role   = aws_iam_role.platform_service.id
-  policy = data.aws_iam_policy_document.platform_service.json
+resource "aws_ecs_cluster" "primary" {
+  name = terraform.workspace
 }
 
-data "aws_iam_policy_document" "platform_service" {
+resource "aws_ecs_cluster_capacity_providers" "primary" {
+  cluster_name = aws_ecs_cluster.primary.name
 
-  statement {
-    actions = [
-      "sqs:ChangeMessageVisibility",
-      "sqs:ChangeMessageVisibilityBatch",
-      "sqs:DeleteMessage",
-      "sqs:DeleteMessageBatch",
-      "sqs:GetQueueAttributes",
-      "sqs:GetQueueUrl",
-      "sqs:ReceiveMessage",
-      "sqs:SendMessage",
-      "sqs:SendMessageBatch",
-      "sqs:ListQueues"
-    ]
-    resources = ["*"]
-  }
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
 
-  statement {
-    actions = [
-      "ecs:*",
-    ]
-    resources = [
-      "*"
-    ]
-  }
-
-  statement {
-    actions = [
-      "iam:PassRole",
-    ]
-    resources = [
-      "*"
-    ]
-  }
-
-  statement {
-    actions = [
-      "ec2:Describe*"
-    ]
-    resources = [
-      "*"
-    ]
-  }
-
-  statement {
-    actions = [
-      "sns:*"
-    ]
-    resources = [
-      "*"
-    ]
-  }
-
-  statement {
-    actions = [
-      "logs:CreateLogStream",
-      "logs:PutLogEvents"
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    actions = [
-      "s3:Put*",
-      "s3:Get*",
-      "s3:ListBucket"
-    ]
-    resources = [
-      aws_s3_bucket.bucket.arn,
-      "${aws_s3_bucket.bucket.arn}/*"
-    ]
+  default_capacity_provider_strategy {
+    base              = 1
+    weight            = 100
+    capacity_provider = "FARGATE"
   }
 }
 
-data "aws_iam_policy_document" "grant" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type = "Service"
-      identifiers = [
-        "ecs-tasks.amazonaws.com"
-      ]
+resource "aws_ecs_service" "web" {
+  depends_on = [aws_ecs_task_definition.web, aws_iam_role.platform_service]
+
+  name            = "${var.project}-${terraform.workspace}-web"
+  cluster         = aws_ecs_cluster.primary.id
+  task_definition = aws_ecs_task_definition.web.arn
+  desired_count   = var.web_count
+  # iam_role        = aws_iam_role.ecs_service.arn 
+
+  load_balancer {
+    target_group_arn = aws_alb_target_group.http.arn
+    container_name   = "${var.project}-${terraform.workspace}-web"
+    container_port   = 8080
+  }
+
+  deployment_controller {
+    type = "ECS"
+  }
+
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 50
+
+  network_configuration {
+    subnets          = data.aws_subnets.private.ids
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = false
+  }
+
+  capacity_provider_strategy {
+    base              = 1
+    capacity_provider = "FARGATE"
+    weight            = 100
+  }
+
+  deployment_circuit_breaker {
+    enable   = false 
+    rollback = false 
+  }
+}
+
+resource "aws_ecs_task_definition" "web" {
+  depends_on = [aws_db_instance.primary, aws_s3_bucket.bucket, aws_sqs_queue.queue, aws_sqs_queue.queue_dead]
+
+  family                   = "homelink-${terraform.workspace}-web"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = var.web_cpu
+  memory                   = var.web_mem
+  network_mode             = "awsvpc"
+  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  task_role_arn            = aws_iam_role.platform_service.arn
+
+  container_definitions = templatefile("${path.module}/web_container.tftpl",
+    {
+      cpu             = var.web_cpu
+      mem             = var.web_mem
+      image           = var.docker_image
+      environment     = terraform.workspace
+      rails_env       = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
+      region          = var.region
+      database_url    = "postgres://${aws_db_instance.primary.username}:${var.db_password}@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
+      app_bucket_name = aws_s3_bucket.bucket.id
+      default_queue   = "${var.project}_${terraform.workspace}_main"
     }
+  )
+}
+
+
+resource "aws_ecs_service" "worker" {
+  depends_on = [aws_ecs_task_definition.worker, aws_iam_role.platform_service]
+
+  name            = "${var.project}-${terraform.workspace}-worker"
+  cluster         = aws_ecs_cluster.primary.id
+  task_definition = aws_ecs_task_definition.worker.arn
+  desired_count   = var.worker_count
+  # iam_role        = aws_iam_role.ecs_service.arn 
+
+  deployment_controller {
+    type = "ECS"
+  }
+
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 50
+
+  network_configuration {
+    subnets          = data.aws_subnets.private.ids
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = false
+  }
+
+  capacity_provider_strategy {
+    base              = 1
+    capacity_provider = "FARGATE"
+    weight            = 100
+  }
+
+  deployment_circuit_breaker {
+    enable   = false 
+    rollback = false 
   }
 }
 
+resource "aws_ecs_task_definition" "worker" {
+  depends_on = [aws_db_instance.primary, aws_s3_bucket.bucket, aws_sqs_queue.queue, aws_sqs_queue.queue_dead]
+
+  family                   = "homelink-${terraform.workspace}-worker"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = var.worker_cpu
+  memory                   = var.worker_mem
+  network_mode             = "awsvpc"
+  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  task_role_arn            = aws_iam_role.platform_service.arn
+
+  container_definitions = templatefile("${path.module}/worker_container.tftpl",
+    {
+      cpu             = var.worker_cpu
+      mem             = var.worker_mem
+      image           = var.docker_image
+      environment     = terraform.workspace
+      rails_env       = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
+      region          = var.region
+      database_url    = "postgres://${aws_db_instance.primary.username}:${var.db_password}@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
+      app_bucket_name = aws_s3_bucket.bucket.id
+      default_queue   = "${var.project}_${terraform.workspace}_main"
+    }
+  )
+}

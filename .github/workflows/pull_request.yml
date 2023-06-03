@@ -1,14 +1,17 @@
-name: "New Pull Request Web App"
+name: "New Pull Request"
 
 on:
   pull_request:
     branches: ["main"]
+    types: [opened]
 
 jobs:
   tests:
     name: Run Tests
     if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
+    permissions: 
+      contents: read
     # should limit to one test run per branch that is PR'd
     concurrency:
       group: ${{github.head_ref}}-tests
@@ -31,7 +34,7 @@ jobs:
         ports: ["6379:6379"]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@master
       - uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
@@ -41,13 +44,6 @@ jobs:
           configuration-path: .github/pr-labeler.yml # optional, .github/pr-labeler.yml is the default value
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
 
       - name: Install PostgreSQL
         run: sudo apt-get -yqq install libpq-dev poppler-utils
@@ -80,11 +76,12 @@ jobs:
       cancel-in-progress: true
     defaults:
       run:
-        working-directory: ${{ env.tf_actions_working_dir }}
+        working-directory: .infrastructure
     permissions:
+      contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@master
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -94,6 +91,13 @@ jobs:
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.4.6
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
 
       - name: Terraform fmt
         id: fmt
@@ -117,80 +121,46 @@ jobs:
         run: terraform plan -no-color -var-file="sandbox.tfvars"
         continue-on-error: true
 
-      - uses: actions/github-script@v6
-        if: github.event_name == 'pull_request'
-        env:
-          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+      - name: Terraform Format Comment
+        uses: peter-evans/create-or-update-comment@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            // 1. Retrieve existing bot comments for the PR
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            })
-            const botComment = comments.find(comment => {
-              return comment.user.type === 'Bot' && comment.body.includes('Terraform Format and Style')
-            })
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            #### Terraform Format and Style \n ${{ steps.fmt.outcome }}
+            #### Terraform Validation \n ${{ steps.validate.outcome }}
+            #### Terraform Plan \n ${{ steps.plan.outcome }}
+          reactions: '+1'
 
-            // 2. Prepare format of the comment
-            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
-            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
-            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
-            <details><summary>Validation Output</summary>
-
-            \`\`\`\n
-            ${{ steps.validate.outputs.stdout }}
-            \`\`\`
-
-            </details>
-
-            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
-
-            <details><summary>Show Plan</summary>
-
-            \`\`\`\n
-            ${process.env.PLAN}
-            \`\`\`
-
-            </details>
-
-            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Working Directory: \`${{ env.tf_actions_working_dir }}\`, Workflow: \`${{ github.workflow }}\`*`;
-
-            // 3. If we have a comment, update it, otherwise create a new one
-            if (botComment) {
-              github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: output
-              })
-            } else {
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: output
-              })
-            }
   deploy_test_env:
     name: Deploy Test Environment
     if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.ref }}-test-env
-      cancel-in-progress: true
+      cancel-in-progress: false
     defaults:
       run:
-        working-directory: ${{ env.tf_actions_working_dir }}
+        working-directory: .infrastructure
     permissions:
       pull-requests: write
+      contents: read
     steps: 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@master
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.4.6
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Set short git commit SHA
+        id: vars
+        run: |
+          calculatedSha=$(git rev-parse --short ${{ github.sha }})
+          echo "::set-output name=short_sha::$calculatedSha"
 
       - name: Terraform fmt
         id: fmt
@@ -203,10 +173,29 @@ jobs:
 
       - name: New Terraform Workspace
         id: workspace
-        run: terraform workspace new ${{ github.ref_name }}
-
+        run: terraform workspace new ${{ steps.vars.outputs.short_sha }}
 
       - name: Terraform Apply
         id: apply
         run: terraform apply --auto-approve
         continue-on-error: false
+
+      - name: Run Migration Task
+        id: db-migration
+        run: |
+          echo "Running task with Task Definition ARN ${{ steps.apply.outputs.worker_task_def_arn }}
+          TASK_ARN=$(aws ecs run-task --cluster ${{ steps.apply.outputs.ecs_cluster_name }} --count 1 --launch-type FARGATE \
+          --task-definition ${{ steps.apply.outputs.worker_task_def_arn }} \
+          --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ steps.apply.outputs.task_subnet }}\"],\"securityGroups\":[\"${{ steps.apply.outputs.sg_ecs}}\"]}}" \
+          --overrides "{\"containerOverrides\":[{\"name\":\"hive-tasks\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:create\",\"db:migrate\"]}]}" --output text --query tasks[0].taskArn)
+          echo "Task started successfully. ARN: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster primary --tasks $TASK_ARN
+
+      - name: Test Environment Deployed Comment
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            The Test Environment has been deployed.
+            Preview available at ${{ steps.apply.outputs.www_fqdn}}
+          reactions: '+1'
