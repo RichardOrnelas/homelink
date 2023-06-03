@@ -276,7 +276,7 @@ jobs:
       - name: Run Migration Task
         id: db-migration
         run: |
-          echo "Running task with Task Definition ARN ${{ needs.deploy_test_env.outputs.taskArn }}
+          echo "Running task with Task Definition ARN ${{ needs.deploy_test_env.outputs.taskArn }}"
           TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
           --task-definition ${{ needs.deploy_test_env.outputs.taskArn }} \
           --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_test_env.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_test_env.outputs.taskSG }}\"]}}" \
