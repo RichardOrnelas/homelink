@@ -6,6 +6,18 @@ on:
     # types: [opened]
 
 jobs:
+  label: 
+    name: Label Pull Request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@master
+      - uses: TimonVS/pr-labeler-action@v3
+        with:
+          configuration-path: .github/pr-labeler.yml # optional, .github/pr-labeler.yml is the default value
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   tests:
     name: Run Tests
     runs-on: ubuntu-latest
@@ -38,12 +50,6 @@ jobs:
         with:
           bundler-cache: true
           
-      - uses: TimonVS/pr-labeler-action@v3
-        with:
-          configuration-path: .github/pr-labeler.yml # optional, .github/pr-labeler.yml is the default value
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install PostgreSQL
         run: sudo apt-get -yqq install libpq-dev poppler-utils
 
@@ -118,9 +124,12 @@ jobs:
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            #### Terraform Format and Style \n ${{ steps.fmt.outcome }}
-            #### Terraform Validation \n ${{ steps.validate.outcome }}
-            #### Terraform Plan \n ${{ steps.plan.outcome }}
+            #### Terraform Format and Style
+            ${{ steps.fmt.outcome }}
+            #### Terraform Validation
+            ${{ steps.validate.outcome }}
+            #### Terraform Plan 
+            ${{ steps.plan.outputs.stdout }}
           reactions: '+1'
   
   build_docker_image:
