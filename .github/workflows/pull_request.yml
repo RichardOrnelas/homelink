@@ -223,23 +223,23 @@ jobs:
       
       - name: Get Task Definition Arn
         id: taskdef
-        run: echo "output=$(terraform output worker_task_def_arn)" >> "$GITHUB_OUTPUT"
+        run: echo "output=$(terraform output -raw worker_task_def_arn)" >> "$GITHUB_OUTPUT"
       
       - name: Get Task Definition Subnet
         id: subnet
-        run: echo "output=$(terraform output task_subnet)" >> "$GITHUB_OUTPUT"
+        run: echo "output=$(terraform output -raw task_subnet)" >> "$GITHUB_OUTPUT"
       
       - name: Get Task Definition Security Group
         id: securitygroup
-        run: echo "output=$(terraform output sg_ecs)" >> "$GITHUB_OUTPUT"
+        run: echo "output=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
       
       - name: Get FQDN for Web Service
         id: wwwfqdn
-        run: echo "output=$(terraform output www_fqdn)" >> "$GITHUB_OUTPUT"
+        run: echo "output=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
       
       - name: Get Cluster Name
         id: cluster
-        run: echo "output=$(terraform output ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+        run: echo "output=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
 
 
   migration:
