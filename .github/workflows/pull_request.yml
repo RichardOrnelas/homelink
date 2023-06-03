@@ -89,7 +89,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
+          aws-region: us-east-1
 
       - name: Terraform fmt
         id: fmt
@@ -178,6 +178,12 @@ jobs:
     permissions:
       pull-requests: write
       contents: read
+    outputs:
+      taskArn: ${{ steps.taskdef.outputs.output }}
+      taskSubnet: ${{ steps.subnet.outputs.output }}
+      taskSG: ${{ steps.securitygroup.outputs.output }}
+      wwwFQDN: ${{ steps.wwwfqdn.outputs.output }}
+      ecsClusterName: ${{ steps.cluster.outputs.output }}
     steps: 
       - uses: actions/checkout@master
       - uses: hashicorp/setup-terraform@v2
@@ -189,7 +195,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
+          aws-region: us-east-1
 
       - name: Terraform Init
         id: init
@@ -212,18 +218,59 @@ jobs:
         run: terraform apply --auto-approve
         continue-on-error: false
       
-      - name: TEST TF
-        id: test
-        run: echo ${{steps.apply.outputs.stdout}}
+      - name: Get Task Definition Arn
+        id: taskdef
+        run: echo "output=$(terraform output worker_task_def_arn)" >> "$GITHUB_OUTPUT"
+      
+      - name: Get Task Definition Subnet
+        id: subnet
+        run: echo "output=$(terraform output task_subnet)" >> "$GITHUB_OUTPUT"
+      
+      - name: Get Task Definition Security Group
+        id: securitygroup
+        run: echo "output=$(terraform output sg_ecs)" >> "$GITHUB_OUTPUT"
+      
+      - name: Get FQDN for Web Service
+        id: wwwfqdn
+        run: echo "output=$(terraform output www_fqdn)" >> "$GITHUB_OUTPUT"
+      
+      - name: Get Cluster Name
+        id: cluster
+        run: echo "output=$(terraform output ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+
+
+  migration:
+    name: Setup database
+    needs: deploy_test_env
+    if: ${{ ! github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}-migration-env
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: .infrastructure
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps: 
+      - uses: actions/checkout@master
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
       - name: Run Migration Task
         id: db-migration
         run: |
-          echo "Running task with Task Definition ARN ${{ steps.apply.outputs.worker_task_def_arn }}
-          TASK_ARN=$(aws ecs run-task --cluster ${{ steps.apply.outputs.ecs_cluster_name }} --count 1 --launch-type FARGATE \
-          --task-definition ${{ steps.apply.outputs.worker_task_def_arn }} \
-          --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ steps.apply.outputs.task_subnet }}\"],\"securityGroups\":[\"${{ steps.apply.outputs.sg_ecs}}\"]}}" \
-          --overrides "{\"containerOverrides\":[{\"name\":\"hive-tasks\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:create\",\"db:migrate\"]}]}" --output text --query tasks[0].taskArn)
+          echo "Running task with Task Definition ARN ${{ needs.deploy_test_env.outputs.taskArn }}
+          TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
+          --task-definition ${{ needs.deploy_test_env.outputs.taskArn }} \
+          --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_test_env.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_test_env.outputs.taskSG }}\"]}}" \
+          --overrides "{\"containerOverrides\":[{\"name\":\"hive-tasks\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}" --output text --query tasks[0].taskArn)
           echo "Task started successfully. ARN: $TASK_ARN"
           aws ecs wait tasks-stopped --cluster primary --tasks $TASK_ARN
 
@@ -233,5 +280,5 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             The Test Environment has been deployed.
-            Preview available at ${{ steps.apply.outputs.www_fqdn}}
+            Preview available at ${{ needs.deploy_test_env.outputs.wwwFQDN}}
           reactions: '+1'
