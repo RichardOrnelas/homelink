@@ -172,7 +172,9 @@ jobs:
 
   deploy_test_env:
     name: Deploy Test Environment
-    needs: terraform_plan
+    needs: 
+      - terraform_plan
+      - build_docker_image
     if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     concurrency:
