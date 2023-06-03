@@ -3,7 +3,7 @@ name: "New Pull Request"
 on:
   pull_request:
     branches: ["main"]
-    types: [opened]
+    # types: [opened]
 
 jobs:
   tests:
@@ -168,7 +168,6 @@ jobs:
           tags: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
 
   deploy_test_env:
     name: Deploy Test Environment
