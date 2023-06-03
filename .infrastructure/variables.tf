@@ -58,6 +58,24 @@ variable "web_count" {
   default     = 2
 }
 
+variable "worker_cpu" {
+  type        = number
+  description = "CPU units for worker task"
+  default     = 512
+}
+
+variable "worker_mem" {
+  type        = number
+  description = "Mem units for worker task"
+  default     = 1024
+}
+
+variable "worker_count" {
+  type        = number
+  description = "# of tasks running for worker service"
+  default     = 2
+}
+
 variable "docker_image" {
   type        = string
   description = "Docker image to deploy"

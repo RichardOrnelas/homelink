@@ -407,7 +407,7 @@ resource "aws_ecs_service" "web" {
 }
 
 resource "aws_ecs_task_definition" "web" {
-  depends_on      = [aws_db_instance.primary, aws_s3_bucket.bucket, aws_sqs_queue.queue, aws_sqs_queue.queue_dead]
+  depends_on = [aws_db_instance.primary, aws_s3_bucket.bucket, aws_sqs_queue.queue, aws_sqs_queue.queue_dead]
 
   family                   = "homelink-${terraform.workspace}-web"
   requires_compatibilities = ["FARGATE"]
@@ -421,6 +421,56 @@ resource "aws_ecs_task_definition" "web" {
     {
       cpu             = var.web_cpu
       mem             = var.web_mem
+      image           = var.docker_image
+      environment     = terraform.workspace
+      rails_env       = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
+      region          = var.region
+      database_url    = "postgres://${aws_db_instance.primary.username}:${var.db_password}@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
+      app_bucket_name = aws_s3_bucket.bucket.id
+      default_queue   = "${var.project}_${terraform.workspace}_main"
+    }
+  )
+}
+
+
+resource "aws_ecs_service" "worker" {
+  depends_on = [aws_ecs_task_definition.worker, aws_iam_role.platform_service]
+
+  name            = "${var.project}-${terraform.workspace}-worker"
+  cluster         = aws_ecs_cluster.primary.id
+  task_definition = aws_ecs_task_definition.worker.arn
+  desired_count   = var.worker_count
+  # iam_role        = aws_iam_role.ecs_service.arn 
+
+  deployment_controller {
+    type = "ECS"
+  }
+
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 50
+
+  network_configuration {
+    subnets          = data.aws_subnets.private.ids
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = false
+  }
+}
+
+resource "aws_ecs_task_definition" "worker" {
+  depends_on = [aws_db_instance.primary, aws_s3_bucket.bucket, aws_sqs_queue.queue, aws_sqs_queue.queue_dead]
+
+  family                   = "homelink-${terraform.workspace}-worker"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = var.worker_cpu
+  memory                   = var.worker_mem
+  network_mode             = "awsvpc"
+  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  task_role_arn            = aws_iam_role.platform_service.arn
+
+  container_definitions = templatefile("${path.module}/worker_container.tftpl",
+    {
+      cpu             = var.worker_cpu
+      mem             = var.worker_mem
       image           = var.docker_image
       environment     = terraform.workspace
       rails_env       = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
