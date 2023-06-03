@@ -179,7 +179,7 @@ jobs:
       pull-requests: write
       contents: read
     outputs:
-      taskDef: ${{ steps.taskdef.outputs.output }}
+      taskDefArn: ${{ steps.taskdef.outputs.output }}
       taskSubnet: ${{ steps.subnet.outputs.output }}
       taskSG: ${{ steps.securitygroup.outputs.output }}
       wwwFQDN: ${{ steps.wwwfqdn.outputs.output }}
@@ -270,14 +270,16 @@ jobs:
           aws-region: us-east-1
       
       - name: Test Task ARN
-        run: echo ${{join(needs.deploy_test_env.outputs.*, '\n')}}
+        run: |
+          echo ${{join(needs.deploy_test_env.outputs.*, '\n')}}
+          echo ${{needs.deploy_test_env.outputs.taskDefArn}}
 
       - name: Run Migration Task
         id: db-migration
         run: |
-          echo "Running task with Task Definition ARN ${{ needs.deploy_test_env.outputs.taskDef }}"
+          echo "Running task with Task Definition ARN ${{ needs.deploy_test_env.outputs.taskDefArn }}"
           TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
-          --task-definition ${{ needs.deploy_test_env.outputs.taskDef }} \
+          --task-definition ${{ needs.deploy_test_env.outputs.taskDefArn }} \
           --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_test_env.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_test_env.outputs.taskSG }}\"]}}" \
           --overrides "{\"containerOverrides\":[{\"name\":\"hive-tasks\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}" --output text --query tasks[0].taskArn)
           echo "Task started successfully. ARN: $TASK_ARN"
