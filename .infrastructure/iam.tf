@@ -6,7 +6,7 @@ resource "aws_iam_role" "ecs_execution" {
 }
 
 resource "aws_iam_role_policy" "ecs_execution_policy" {
-  name   = "${var.project}-${terraform.workspace} ecs execution policy"
+  name   = "${var.project}-${terraform.workspace}-ecs-execution-policy"
   role   = aws_iam_role.ecs_execution.id
   policy = data.aws_iam_policy_document.ecs_execution_policy.json
 }
@@ -56,7 +56,7 @@ resource "aws_iam_role" "ecs_service" {
 }
 
 resource "aws_iam_role_policy" "ecs_service" {
-  name   = "${var.project}-${terraform.workspace} ecs service policy"
+  name   = "${var.project}-${terraform.workspace}-ecs-service-policy"
   role   = aws_iam_role.ecs_service.id
   policy = data.aws_iam_policy_document.ecs_service_policy.json
 }
