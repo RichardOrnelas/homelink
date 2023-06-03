@@ -183,7 +183,6 @@ jobs:
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.4.6
-          terraform_wrapper: false
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -212,6 +211,10 @@ jobs:
           TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
         run: terraform apply --auto-approve
         continue-on-error: false
+      
+      - name: TEST TF
+        id: test
+        run: echo ${{steps.apply.outputs.stdout}}
 
       - name: Run Migration Task
         id: db-migration
