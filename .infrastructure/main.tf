@@ -225,7 +225,7 @@ resource "aws_alb" "web" {
 
 resource "aws_alb_target_group" "http" {
   name        = "${var.project}-${terraform.workspace}-http"
-  port        = "80"
+  port        = "8080"
   protocol    = "HTTP"
   target_type = "ip"
   vpc_id      = data.aws_vpc.primary.id
@@ -388,7 +388,7 @@ resource "aws_ecs_service" "web" {
 
   load_balancer {
     target_group_arn = aws_alb_target_group.http.arn
-    container_name   = "${var.project}-${terraform.workspace}-web"
+    container_name   = "${var.project}-web"
     container_port   = 8080
   }
 
@@ -420,7 +420,7 @@ resource "aws_ecs_service" "web" {
 resource "aws_ecs_task_definition" "web" {
   depends_on = [aws_db_instance.primary, aws_s3_bucket.bucket, aws_sqs_queue.queue, aws_sqs_queue.queue_dead]
 
-  family                   = "homelink-${terraform.workspace}-web"
+  family                   = "homelink-web"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.web_cpu
   memory                   = var.web_mem
@@ -481,7 +481,7 @@ resource "aws_ecs_service" "worker" {
 resource "aws_ecs_task_definition" "worker" {
   depends_on = [aws_db_instance.primary, aws_s3_bucket.bucket, aws_sqs_queue.queue, aws_sqs_queue.queue_dead]
 
-  family                   = "homelink-${terraform.workspace}-worker"
+  family                   = "homelink-worker"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.worker_cpu
   memory                   = var.worker_mem

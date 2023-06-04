@@ -1,8 +1,6 @@
 # README
 test
 
-
-
 CI Variable List
 AWS_REGION
 AWS_ACCOUNT_ID
