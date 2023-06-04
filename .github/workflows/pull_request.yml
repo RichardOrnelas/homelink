@@ -179,11 +179,11 @@ jobs:
       pull-requests: write
       contents: read
     outputs:
-      taskDefArn: ${{ steps.taskdef.outputs.output }}
-      taskSubnet: ${{ steps.subnet.outputs.output }}
-      taskSG: ${{ steps.securitygroup.outputs.output }}
-      wwwFQDN: ${{ steps.wwwfqdn.outputs.output }}
-      ecsClusterName: ${{ steps.cluster.outputs.output }}
+      taskDefArn:     ${{ steps.tf_outputs.outputs.task }}
+      taskSubnet:     ${{ steps.tf_outputs.outputs.subnet }}
+      taskSG:         ${{ steps.tf_outputs.outputs.sg }}
+      wwwFQDN:        ${{ steps.tf_outputs.outputs.fqdn }}
+      ecsClusterName: ${{ steps.tf_outputs.outputs.cluster }}
     steps: 
       - uses: actions/checkout@master
       - uses: hashicorp/setup-terraform@v2
@@ -233,9 +233,14 @@ jobs:
           echo $output
           echo "output=$output" >> "$GITHUB_OUTPUT"
       
-      - name: Get Task Definition Security Group
-        id: securitygroup
-        run: echo "output=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
+      - name: Set Outputs
+        id: tf_outputs
+        run: |
+          echo "task=$(terraform output -raw worker_task_def_arn)" >> "$GITHUB_OUTPUT"
+          echo "subnet=$(terraform output -raw task_subnet)" >> "$GITHUB_OUTPUT"
+          echo "sg=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
+          echo "fqdn=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
+          echo "cluster=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
       
       - name: Get FQDN for Web Service
         id: wwwfqdn
