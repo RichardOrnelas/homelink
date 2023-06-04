@@ -212,7 +212,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
           mask-aws-account-id: false
-          
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
@@ -234,7 +234,7 @@ jobs:
       - name: Terraform Apply
         id: apply
         env: 
-          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}homelink:${{ github.sha }}
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
         run: terraform apply --auto-approve
         continue-on-error: false
         
