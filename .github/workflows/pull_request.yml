@@ -118,7 +118,7 @@ jobs:
             #### Terraform Validation
             ${{ steps.validate.outcome }}
             #### Terraform Plan 
-            ${{ steps.plan.outputs.outcome }}
+            ${{ steps.plan.outcome }}
           reactions: '+1'
   
   build_docker_image:
@@ -255,11 +255,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
           mask-aws-account-id: false
-      
-      - name: Test Task ARN
-        run: |
-          echo ${{join(needs.deploy_test_env.outputs.*, '\n')}}
-          echo ${{needs.deploy_test_env.outputs.taskDefArn}}
 
       - name: Run Migration Task
         id: db-migration
@@ -278,5 +273,5 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             The Test Environment has been deployed.
-            Preview available at ${{ needs.deploy_test_env.outputs.wwwFQDN}}
-          reactions: '+1'
+            Preview available at [${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})
+          reactions: 'rocket'
