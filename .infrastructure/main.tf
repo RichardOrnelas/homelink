@@ -92,6 +92,17 @@ resource "aws_security_group_rule" "ecs_sg_http" {
   description              = "Allow private network traffic from Acorns security groups over HTTP"
 }
 
+resource "aws_security_group_rule" "ecs_sg_http2" {
+
+  security_group_id        = aws_security_group.ecs.id
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb_public.id
+  description              = "Allow private network traffic from Acorns security groups over HTTP"
+}
+
 resource "aws_security_group" "rds" {
   name        = "rds-access-${terraform.workspace}"
   description = "ECS RDS Instance Access"
@@ -135,6 +146,18 @@ resource "aws_db_subnet_group" "ecs" {
   description = "RDS Subnets - ${terraform.workspace}"
 }
 
+resource "random_password" "rds_password" {
+  length  = 32
+  special = false
+  lower   = true
+  numeric = true
+  upper   = true
+  keepers = {
+    # If you want to rotate the password, then just change this value
+    "last-updated" = "2023-06-03"
+  }
+}
+
 resource "aws_db_instance" "primary" {
 
   allocated_storage            = 20
@@ -145,7 +168,7 @@ resource "aws_db_instance" "primary" {
   db_name                      = var.project
   identifier                   = "${var.project}-${terraform.workspace}"
   username                     = var.project
-  password                     = var.db_password
+  password                     = random_password.rds_password.result
   port                         = 5432
   parameter_group_name         = var.db_parameter_group
   vpc_security_group_ids       = [aws_security_group.rds.id]
@@ -180,7 +203,7 @@ resource "aws_ssm_parameter" "DATABASE_URL" {
   name        = "/${var.project}/${terraform.workspace}/DATABASE_URL"
   description = "Database URL for the Chainlink application"
   type        = "SecureString"
-  value       = "postgres://${aws_db_instance.primary.username}:${var.db_password}@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
+  value       = format("postgres://%s:%s@%s/%s", aws_db_instance.primary.username, random_password.rds_password.result, aws_db_instance.primary.endpoint, aws_db_instance.primary.name)
 
 }
 
@@ -236,7 +259,7 @@ resource "aws_alb_target_group" "http" {
     timeout             = 5
     unhealthy_threshold = 2
     interval            = 10
-    matcher             = "200"
+    matcher             = "200-304"
   }
 
   deregistration_delay = 30
@@ -412,8 +435,46 @@ resource "aws_ecs_service" "web" {
   }
 
   deployment_circuit_breaker {
-    enable   = false 
-    rollback = false 
+    enable   = false
+    rollback = false
+  }
+}
+
+
+locals {
+
+  env_vars = {
+    RAILS_MAX_THREADS = 8
+    PORT              = 8080
+    RAILS_ENV         = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
+  }
+
+  # Secrets that point to an SSM arn
+  secret_vars = {
+    DATABASE_URL    = aws_ssm_parameter.DATABASE_URL.arn
+    APP_BUCKET_NAME = aws_ssm_parameter.APP_BUCKET.arn
+  }
+
+  # Leave these alone
+  env_var_array = [for k, v in local.env_vars : {
+    name  = k
+    value = tostring(v)
+  }]
+  secret_var_array = [for k, v in local.secret_vars : {
+    name      = k
+    valueFrom = v
+  }]
+
+  base_app_container = {
+    image        = var.docker_image
+    volumesFrom  = []
+    essential    = true
+    mountPoints  = []
+    portMappings = []
+    environment  = local.env_var_array
+    secrets      = local.secret_var_array
+    startTimeout = 60
+    stopTimeout  = 115
   }
 }
 
@@ -428,19 +489,42 @@ resource "aws_ecs_task_definition" "web" {
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.platform_service.arn
 
-  container_definitions = templatefile("${path.module}/web_container.tftpl",
-    {
-      cpu             = var.web_cpu
-      mem             = var.web_mem
-      image           = var.docker_image
-      environment     = terraform.workspace
-      rails_env       = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
-      region          = var.region
-      database_url    = "postgres://${aws_db_instance.primary.username}:${var.db_password}@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
-      app_bucket_name = aws_s3_bucket.bucket.id
-      default_queue   = "${var.project}_${terraform.workspace}_main"
-    }
-  )
+  # container_definitions = templatefile("${path.module}/web_container.tftpl",
+  #   {
+  #     cpu             = var.web_cpu
+  #     mem             = var.web_mem
+  #     image           = var.docker_image
+  #     environment     = terraform.workspace
+  #     rails_env       = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
+  #     region          = var.region
+  #     database_url    = "postgres://${aws_db_instance.primary.username}:${var.db_password}@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
+  #     app_bucket_name = aws_s3_bucket.bucket.id
+  #     default_queue   = "${var.project}_${terraform.workspace}_main"
+  #   }
+  # )
+  container_definitions = jsonencode([
+    merge(local.base_app_container, {
+      name = "homelink-web"
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.web.name
+          "awslogs-region"        = "us-east-1"
+          "awslogs-stream-prefix" = "web"
+        }
+      }
+      portMappings = [
+        {
+          hostPort      = 8080
+          containerPort = 8080
+          protocol      = "tcp"
+        }
+      ]
+      startTimeout = 60
+      stopTimeout  = 115
+      command      = ["bundle", "exec", "puma", "-C", "config/puma.rb"]
+    })
+  ])
 }
 
 
@@ -473,8 +557,8 @@ resource "aws_ecs_service" "worker" {
   }
 
   deployment_circuit_breaker {
-    enable   = false 
-    rollback = false 
+    enable   = false
+    rollback = false
   }
 }
 
@@ -489,17 +573,33 @@ resource "aws_ecs_task_definition" "worker" {
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.platform_service.arn
 
-  container_definitions = templatefile("${path.module}/worker_container.tftpl",
-    {
-      cpu             = var.worker_cpu
-      mem             = var.worker_mem
-      image           = var.docker_image
-      environment     = terraform.workspace
-      rails_env       = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
-      region          = var.region
-      database_url    = "postgres://${aws_db_instance.primary.username}:${var.db_password}@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
-      app_bucket_name = aws_s3_bucket.bucket.id
-      default_queue   = "${var.project}_${terraform.workspace}_main"
-    }
-  )
+  # container_definitions = templatefile("${path.module}/worker_container.tftpl",
+  #   {
+  #     cpu             = var.worker_cpu
+  #     mem             = var.worker_mem
+  #     image           = var.docker_image
+  #     environment     = terraform.workspace
+  #     rails_env       = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
+  #     region          = var.region
+  #     database_url    = "postgres://${aws_db_instance.primary.username}:${var.db_password}@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
+  #     app_bucket_name = aws_s3_bucket.bucket.id
+  #     default_queue   = "${var.project}_${terraform.workspace}_main"
+  #   }
+  # )
+  container_definitions = jsonencode([
+    merge(local.base_app_container, {
+      name = "homelink-worker"
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.worker.name
+          "awslogs-region"        = "us-east-1"
+          "awslogs-stream-prefix" = "worker"
+        }
+      }
+      startTimeout = 60
+      stopTimeout  = 115
+      command      = ["bundle", "exec", "shoryuken", "-R", "-C", "config/shoryuken.yml"]
+    })
+  ])
 }

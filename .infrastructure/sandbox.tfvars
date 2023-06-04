@@ -1,6 +1,5 @@
-ip_whitelist = ["0.0.0.0/0"]
-db_password = "Platform1234"
-db_instance_class = "db.t3.micro" 
+ip_whitelist      = ["0.0.0.0/0"]
+db_instance_class = "db.t3.micro"
 # web_cpu = 
 # web_mem = 
 # web_count = 
