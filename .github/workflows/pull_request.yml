@@ -270,7 +270,7 @@ jobs:
           --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_test_env.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_test_env.outputs.taskSG }}\"]}}" \
           --overrides "{\"containerOverrides\":[{\"name\":\"homelink-worker\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}" --output text --query tasks[0].taskArn)
           echo "Task started successfully. ARN: $TASK_ARN"
-          aws ecs wait tasks-stopped --cluster primary --tasks $TASK_ARN
+          aws ecs wait tasks-stopped --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --tasks $TASK_ARN
 
       - name: Test Environment Deployed Comment
         uses: peter-evans/create-or-update-comment@v3
