@@ -225,7 +225,7 @@ resource "aws_alb" "web" {
 
 resource "aws_alb_target_group" "http" {
   name        = "${var.project}-${terraform.workspace}-http"
-  port        = "80"
+  port        = "8080"
   protocol    = "HTTP"
   target_type = "ip"
   vpc_id      = data.aws_vpc.primary.id
