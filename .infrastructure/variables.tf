@@ -16,12 +16,6 @@ variable "ip_whitelist" {
   default     = ["0.0.0.0/0"]
 }
 
-variable "db_password" {
-  type        = string
-  description = "Database Password"
-  default     = "platform1234"
-}
-
 variable "db_postgres_version" {
   type        = string
   description = "Postgres database version"

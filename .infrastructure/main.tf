@@ -139,7 +139,7 @@ resource "random_password" "rds_password" {
   length  = 32
   special = false
   lower   = true
-  number  = true
+  numeric = true
   upper   = true
   keepers = {
     # If you want to rotate the password, then just change this value
@@ -192,7 +192,7 @@ resource "aws_ssm_parameter" "DATABASE_URL" {
   name        = "/${var.project}/${terraform.workspace}/DATABASE_URL"
   description = "Database URL for the Chainlink application"
   type        = "SecureString"
-  value       = format("postgres://%s:%s@%s/%s", aws_db_instance.main.username, random_password.rds_password.result, aws_db_instance.main.endpoint, aws_db_instance.main.name)
+  value       = format("postgres://%s:%s@%s/%s", aws_db_instance.primary.username, random_password.rds_password.result, aws_db_instance.primary.endpoint, aws_db_instance.primary.name)
 
 }
 
@@ -433,15 +433,15 @@ resource "aws_ecs_service" "web" {
 locals {
 
   env_vars = {
-    RAILS_MAX_THREADS           = 8
-    PORT = 8080
-    RAILS_ENV                   = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
+    RAILS_MAX_THREADS = 8
+    PORT              = 8080
+    RAILS_ENV         = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
   }
 
   # Secrets that point to an SSM arn
   secret_vars = {
-    DATABASE_URL        = aws_ssm_parameter.DATABASE_URL.arn
-    APP_BUCKET_NAME        = aws_ssm_parameter.APP_BUCKET.arn
+    DATABASE_URL    = aws_ssm_parameter.DATABASE_URL.arn
+    APP_BUCKET_NAME = aws_ssm_parameter.APP_BUCKET.arn
   }
 
   # Leave these alone
@@ -450,20 +450,20 @@ locals {
     value = tostring(v)
   }]
   secret_var_array = [for k, v in local.secret_vars : {
-    name  = k
+    name      = k
     valueFrom = v
   }]
 
   base_app_container = {
-    image = local.service_docker_image
-    volumesFrom = []
-    essential = true
-    mountPoints = []
+    image        = var.docker_image
+    volumesFrom  = []
+    essential    = true
+    mountPoints  = []
     portMappings = []
-    environment = local.env_var_array
-    secrets = local.secret_var_array
+    environment  = local.env_var_array
+    secrets      = local.secret_var_array
     startTimeout = 60
-    stopTimeout = 115
+    stopTimeout  = 115
   }
 }
 
@@ -491,29 +491,29 @@ resource "aws_ecs_task_definition" "web" {
   #     default_queue   = "${var.project}_${terraform.workspace}_main"
   #   }
   # )
-  container_definitions = nonsensitive(jsonencode([
+  container_definitions = jsonencode([
     merge(local.base_app_container, {
       name = "homelink-web"
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group" = aws_cloudwatch_log_group.web.name
-          "awslogs-region" = "us-east-1"
+          "awslogs-group"         = aws_cloudwatch_log_group.web.name
+          "awslogs-region"        = "us-east-1"
           "awslogs-stream-prefix" = "web"
         }
       }
       portMappings = [
         {
-          hostPort = 8080
+          hostPort      = 8080
           containerPort = 8080
-          protocol = "tcp"
+          protocol      = "tcp"
         }
       ]
       startTimeout = 60
-      stopTimeout = 115
-      command = ["bundle", "exec", "puma", "-C", "config/puma.rb"]
+      stopTimeout  = 115
+      command      = ["bundle", "exec", "puma", "-C", "config/puma.rb"]
     })
-  ]))
+  ])
 }
 
 
@@ -575,20 +575,20 @@ resource "aws_ecs_task_definition" "worker" {
   #     default_queue   = "${var.project}_${terraform.workspace}_main"
   #   }
   # )
-  container_definitions = nonsensitive(jsonencode([
+  container_definitions = jsonencode([
     merge(local.base_app_container, {
       name = "homelink-worker"
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group" = aws_cloudwatch_log_group.worker.name
-          "awslogs-region" = "us-east-1"
+          "awslogs-group"         = aws_cloudwatch_log_group.worker.name
+          "awslogs-region"        = "us-east-1"
           "awslogs-stream-prefix" = "worker"
         }
       }
       startTimeout = 60
-      stopTimeout = 115
-      command = ["bundle", "exec", "shoryuken", "-R", "-C", "config/shoryuken.yml"]
+      stopTimeout  = 115
+      command      = ["bundle", "exec", "shoryuken", "-R", "-C", "config/shoryuken.yml"]
     })
-  ]))
+  ])
 }
