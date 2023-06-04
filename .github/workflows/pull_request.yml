@@ -6,6 +6,16 @@ on:
     # types: [opened]
 
 jobs:
+  label:
+    name: Label Pull Request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/labeler@v4
+
   tests:
     name: Run Tests
     runs-on: ubuntu-latest
