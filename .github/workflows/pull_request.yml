@@ -17,7 +17,7 @@ jobs:
       - uses: TimonVS/pr-labeler-action@v4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          
+
   tests:
     name: Run Tests
     runs-on: ubuntu-latest
@@ -230,7 +230,7 @@ jobs:
       - name: Terraform Apply
         id: apply
         env: 
-          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}homelink:${{ github.sha }}
         run: terraform apply --auto-approve
         continue-on-error: false
         
