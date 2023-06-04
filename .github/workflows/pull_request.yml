@@ -219,20 +219,6 @@ jobs:
         run: terraform apply --auto-approve
         continue-on-error: false
         
-      - name: Get Task Definition Arn
-        id: taskdef
-        run: |
-          output=$(terraform output -raw worker_task_def_arn)
-          echo $output
-          echo "output=$output" >> "$GITHUB_OUTPUT"
-      
-      - name: Get Task Definition Subnet
-        id: subnet
-        run: |
-          output=$(terraform output -raw task_subnet)
-          echo $output
-          echo "output=$output" >> "$GITHUB_OUTPUT"
-      
       - name: Set Outputs
         id: tf_outputs
         run: |
@@ -241,14 +227,6 @@ jobs:
           echo "sg=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
           echo "fqdn=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
           echo "cluster=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
-      
-      - name: Get FQDN for Web Service
-        id: wwwfqdn
-        run: echo "output=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
-      
-      - name: Get Cluster Name
-        id: cluster
-        run: echo "output=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
 
   migration:
     name: Setup database
