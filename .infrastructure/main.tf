@@ -388,7 +388,7 @@ resource "aws_ecs_service" "web" {
 
   load_balancer {
     target_group_arn = aws_alb_target_group.http.arn
-    container_name   = "${var.project}-${terraform.workspace}-web"
+    container_name   = "${var.project}-web"
     container_port   = 8080
   }
 
