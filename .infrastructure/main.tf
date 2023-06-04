@@ -92,6 +92,17 @@ resource "aws_security_group_rule" "ecs_sg_http" {
   description              = "Allow private network traffic from Acorns security groups over HTTP"
 }
 
+resource "aws_security_group_rule" "ecs_sg_http2" {
+
+  security_group_id        = aws_security_group.ecs.id
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb_public.id
+  description              = "Allow private network traffic from Acorns security groups over HTTP"
+}
+
 resource "aws_security_group" "rds" {
   name        = "rds-access-${terraform.workspace}"
   description = "ECS RDS Instance Access"
@@ -248,7 +259,7 @@ resource "aws_alb_target_group" "http" {
     timeout             = 5
     unhealthy_threshold = 2
     interval            = 10
-    matcher             = "200"
+    matcher             = "200-304"
   }
 
   deregistration_delay = 30
