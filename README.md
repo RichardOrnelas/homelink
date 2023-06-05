@@ -6,11 +6,32 @@
 [![Deploy Staging Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml)
 
 ## Architecture
+Homelink is a Ruby on Rails application that houses a simple user directory service. It allows users to create a profile, login to that profile, and update their profile, including a profile picture. It stores this data in a Postgres database, and leverages an Active Job processor to handle async operations using a queueing strategy.
 
-### Dependencies
+### AWS Resources
+I made an assumption that the service would live inside a current VPC, so it begins with the assumption that there is a VPC provided with some sort of tagging strategy. I built a new VPC for this project, but that is not a requirement. Simply need to update tagging in the infrastructure `.infrastructure/main.tf` to update the VPC.
+
+Under the hood in AWS, Homelink leverages the following:
+* AWS Elastic Container Service for Web and Worker container hosting.
+* AWS Application Load Balancer for managing web connections
+* AWS Relational Database Service for the PostGres db.
+* AWS Simple Queue Service for high and low queues, and corresponding dead letter queues.
+* AWS S3 bucket for storing attachments 
+
+### Dependencies and Requirements
+* terraform 1.4.6
+* ruby 3.2.2
+* postgres 15.2 
+* nodejs 20.2.0
+* AWS credentials for the sandbox environment
+* See [setup](###-Setup) for local development setup
+
+
 
 ## CI/CD
 flow, secrets, processes, actions, environments
+### Operating Environments
+
 
 
 ## Local Development
@@ -146,11 +167,6 @@ Things you may want to cover:
   `bundle install`
 - Setup Database
   `RAILS_ENV=development rails db:create db:migrate`
-
-
-
-
-
 
 * Configuration
 

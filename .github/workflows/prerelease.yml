@@ -49,7 +49,9 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color -var-file="staging.tfvars"
+        env: 
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}
+        run: terraform plan -no-color -var-file="staging.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}"
         continue-on-error: false
 
       - name: Send custom JSON data to Slack workflow
@@ -68,7 +70,7 @@ jobs:
         id: apply
         env: 
           TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}
-        run: terraform apply -no-color -var-file="staging.tfvars" -var="docker_image=${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}"" --auto-approve
+        run: terraform apply -no-color -var-file="staging.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}" --auto-approve
         continue-on-error: false
       
       - name: Send custom JSON data to Slack workflow

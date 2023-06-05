@@ -312,6 +312,14 @@ jobs:
             Docker Image: **${{ needs.deploy_test_env.outputs.dockerImage }}**
             ECS Cluster: **${{ needs.deploy_test_env.outputs.ecsClusterName }}**
             Terraform Workspace: **${{ needs.deploy_test_env.outputs.ecsClusterName }}**
+
+            To check out the workspace locally, checkout this branch and...
+            ```
+            cd .infrastructure
+            terraform init
+            terraform workspace select ${{ needs.deploy_test_env.outputs.ecsClusterName }}
+            terraform plan
+            ```
           reactions: 'hooray'
 
       - name: Update comment
@@ -333,6 +341,5 @@ jobs:
             terraform workspace select ${{ needs.deploy_test_env.outputs.ecsClusterName }}
             terraform plan
             ```
-
           reactions: 'hooray'
           edit-mode: replace
