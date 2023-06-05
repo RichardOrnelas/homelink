@@ -132,7 +132,7 @@ jobs:
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
             Terraform Plan: *${{ steps.plan.outcome }}*
-          reactions: 'hooray'
+          reactions: 'eyes'
 
       - name: Update comment
         if: steps.fc.outputs.comment-id != ''
@@ -144,7 +144,8 @@ jobs:
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
             Terraform Plan: *${{ steps.plan.outcome }}*
-          reactions: 'hooray'
+          reactions: 'eyes'
+          edit-mode: replace
   
   build_docker_image:
     name: Build Docker Image
@@ -334,3 +335,4 @@ jobs:
             ```
 
           reactions: 'hooray'
+          edit-mode: replace
