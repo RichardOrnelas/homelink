@@ -1,0 +1,5 @@
+name: "Update Staging Environment"
+
+on:
+  release:
+    types: [prereleased]

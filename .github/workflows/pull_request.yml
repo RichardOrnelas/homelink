@@ -1,9 +1,8 @@
-name: "New Pull Request"
+name: "PR Test Environment"
 
 on:
   pull_request:
     branches: ["main"]
-    # types: [opened]
 
 jobs:
   label:
@@ -80,12 +79,6 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@master
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            infrastructure:
-              - '.infrastructure/**'
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.4.6
@@ -175,12 +168,12 @@ jobs:
 
   deploy_test_env:
     name: Deploy Test Environment
+    if: ${{ ! github.event.pull_request.draft }}
     needs: 
       - terraform_plan
       - build_docker_image
       - tests
       - label
-    if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.ref }}-test-env
