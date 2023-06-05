@@ -126,18 +126,15 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             #### Terraform Format and Style
-            ${{ steps.fmt.outcome }}
+            ### ${{ steps.fmt.outcome }}
             #### Terraform Validation
-            ${{ steps.validate.outcome }}
+            ### ${{ steps.validate.outcome }}
             #### Terraform Plan 
-            ${{ steps.plan.outcome }}
+            ### ${{ steps.plan.outcome }}
           reactions: '+1'
   
   build_docker_image:
     name: Build Docker Image
-    needs: 
-      - terraform_plan
-      - tests
     if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
