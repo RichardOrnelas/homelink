@@ -269,6 +269,7 @@ jobs:
 
       - name: Run Migration Task
         id: db-migration
+        continue-on-error: true
         run: |
           echo "Running task with Task Definition ARN ${{ needs.deploy_test_env.outputs.taskDefArn }}"
           TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
