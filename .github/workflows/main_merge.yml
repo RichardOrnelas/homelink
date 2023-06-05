@@ -7,7 +7,7 @@ on:
   
 jobs:
   build_docker_image:
-    name: Build Docker Image
+    name: Tag Docker Image
     if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
@@ -47,6 +47,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy_sandbox:
+    name: Deploy Sandbox
     runs-on: ubuntu-latest
     needs: build_docker_image
     permissions: 
@@ -107,9 +108,7 @@ jobs:
 
       - name: Terraform Apply
         id: apply
-        env: 
-          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
-        run: terraform apply -no-color -var-file="sandbox.tfvars" --auto-approve
+        run: terraform apply -no-color -var-file="sandbox.tfvars" -var="docker_image=${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}" --auto-approve
         continue-on-error: false
       
       - name: Send custom JSON data to Slack workflow
