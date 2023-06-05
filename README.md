@@ -1,5 +1,88 @@
-# README
-test
+# Homelink
+<!-- TODO: Project Description -->
+[![PR Test Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request.yml/badge.svg?event=pull_request)](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request.yml)
+[![Test Environment Cleanup](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request_closed.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request_closed.yml)
+[![Deploy Sandbox Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/main_merge.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/main_merge.yml)
+[![Deploy Staging Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml)
+
+## Architecture
+
+### Dependencies
+
+## CI/CD
+flow, secrets, processes, actions, environments
+
+
+## Local Development
+
+### Setup
+To setup your local developer environment, clone the repository to your local machine, and install these dependencies.
+
+NOTE: To build and run the Docker image locally, you will need Docker installed.
+
+- _Optional_ Install Homebrew
+  ```
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    echo 'export PATH="/usr/local/sbin:$PATH"' >> ~/.zshrc
+    source ~/.zshrc # If you see weird behavior, restart your terminal
+    brew doctor
+  ```
+- Install `asdf`
+  ```
+    brew install coreutils curl git gpg gawk zsh yarn asdf
+    echo -e "\n. $(brew --prefix asdf)/asdf.sh" >> ~/.zshrc
+    echo 'legacy_version_file = yes' >> ~/.asdfrc
+  ```
+- Install Terraform
+  ```
+  asdf plugin add terraform
+  asdf install terraform 1.4.6
+  asdf global terraform 1.4.6
+  ```
+- Install Ruby
+  ```
+  asdf plugin add ruby
+  asdf install ruby 3.2.2
+  asdf global ruby 3.2.2
+  ```
+- Install Node
+  ```
+  asdf plugin add nodejs
+  asdf install nodejs latest
+  asdf global nodejs latest
+  ```
+- Install PostGres
+  ```
+  asdf plugin add postgres
+  asdf install postgres 15.2
+  asdf global postgres 15.2
+  $HOME/.asdf/installs/postgres/15.2/bin/pg_ctl -D $HOME/.asdf/installs/postgres/15.2/data -l logfile start
+  ```
+- Install Rails
+  `gem install bundler rails`
+
+
+### Working with Rails
+
+* Configuration
+
+* Database creation
+
+* Database initialization
+
+* How to run the test suite
+
+* Services (job queues, cache servers, search engines, etc.)
+
+* Deployment instructions
+
+
+### Working with Terraform
+
+
+
+###
+
 
 CI Variable List
 AWS_REGION
@@ -53,9 +136,9 @@ Things you may want to cover:
 - Install PostGres
   ```
   asdf plugin add postgres
-  asdf install postgres 13.2
-  asdf global postgres 13.2
-  $HOME/.asdf/installs/postgres/13.2/bin/pg_ctl -D $HOME/.asdf/installs/postgres/13.2/data -l logfile start
+  asdf install postgres 15.2
+  asdf global postgres 15.2
+  $HOME/.asdf/installs/postgres/15.2/bin/pg_ctl -D $HOME/.asdf/installs/postgres/15.2/data -l logfile start
   ```
 - Install Rails
   `gem install bundler rails`
@@ -131,6 +214,10 @@ Setup the CI/CD
 ## nice to hives
 precommit
 code change labels based on paths [infra, backend, database migration, SPA]
+
+# 
+
+# Terraform Docs
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

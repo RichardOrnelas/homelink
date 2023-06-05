@@ -3,6 +3,7 @@ name: "PR Test Environment"
 on:
   pull_request:
     branches: ["main"]
+    types: [opened, reopened, synchronize]
 
 jobs:
   label:
@@ -127,11 +128,11 @@ jobs:
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            ## Terraform
+            ## Terraform Results
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
             Terraform Plan: *${{ steps.plan.outcome }}*
-          reactions: 'hooray'
+          reactions: 'eyes'
 
       - name: Update comment
         if: steps.fc.outputs.comment-id != ''
@@ -139,11 +140,12 @@ jobs:
         with:
           comment-id: ${{ steps.fc.outputs.comment-id }}
           body: |
-            ## Terraform
+            ## Terraform Results
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
             Terraform Plan: *${{ steps.plan.outcome }}*
-          reactions: 'hooray'
+          reactions: 'eyes'
+          edit-mode: replace
   
   build_docker_image:
     name: Build Docker Image
@@ -306,10 +308,10 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             ## Pull Request Deployed!
-            Preview URL: *[${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})*
-            Docker Image: *${{ needs.deploy_test_env.outputs.dockerImage }}*
-            ECS Cluster: *${{ steps.tf_outputs.outputs.cluster }}*
-            Terraform Workspace: *${{ steps.tf_outputs.outputs.cluster }}*
+            Preview URL: **[${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})**
+            Docker Image: **${{ needs.deploy_test_env.outputs.dockerImage }}**
+            ECS Cluster: **${{ needs.deploy_test_env.outputs.ecsClusterName }}**
+            Terraform Workspace: **${{ needs.deploy_test_env.outputs.ecsClusterName }}**
           reactions: 'hooray'
 
       - name: Update comment
@@ -319,10 +321,10 @@ jobs:
           comment-id: ${{ steps.fc.outputs.comment-id }}
           body: |
             ## Pull Request Deployed!
-            Preview URL: *[${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})*
-            Docker Image: *${{ needs.deploy_test_env.outputs.dockerImage }}*
-            ECS Cluster: *${{ needs.deploy_test_env.outputs.ecsClusterName }}*
-            Terraform Workspace: *${{ needs.deploy_test_env.outputs.ecsClusterName }}*
+            Preview URL: **[${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})**
+            Docker Image: **${{ needs.deploy_test_env.outputs.dockerImage }}**
+            ECS Cluster: **${{ needs.deploy_test_env.outputs.ecsClusterName }}**
+            Terraform Workspace: **${{ needs.deploy_test_env.outputs.ecsClusterName }}**
 
             To check out the workspace locally, checkout this branch and...
             ```
@@ -333,3 +335,4 @@ jobs:
             ```
 
           reactions: 'hooray'
+          edit-mode: replace
