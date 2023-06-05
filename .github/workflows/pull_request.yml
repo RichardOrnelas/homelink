@@ -309,8 +309,8 @@ jobs:
             ## Pull Request Deployed!
             Preview URL: *[${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})*
             Docker Image: *${{ needs.deploy_test_env.outputs.dockerImage }}*
-            ECS Cluster: *${{ steps.tf_outputs.outputs.cluster }}*
-            Terraform Workspace: *${{ steps.tf_outputs.outputs.cluster }}*
+            ECS Cluster: *${{ needs.deploy_test_env.outputs.ecsClusterName }}*
+            Terraform Workspace: *${{ needs.deploy_test_env.outputs.ecsClusterName }}*
           reactions: 'hooray'
 
       - name: Update comment
