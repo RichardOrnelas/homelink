@@ -1,4 +1,4 @@
-name: "Update Staging Environment"
+name: "Deploy Staging Environment"
 
 on:
   release:
@@ -14,3 +14,71 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@master
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Re-Tag Docker Image with Tag
+        run: |
+          echo "TAG: ${{ github.event.release.tag_name }}, COMMIT: ${{ github.sha }}"
+          MANIFEST=$(aws ecr batch-get-image --repository-name homelink --image-ids imageTag=${{ github.sha }} --output json | jq --raw-output --join-output '.images[0].imageManifest')
+          echo "Image Manifest $MANIFEST"
+          aws ecr put-image --repository-name hive --image-tag ${{ github.event.release.tag_name }} --image-manifest "$MANIFEST"
+      
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Workspace
+        id: workspace
+        run: terraform workspace select staging
+        continue-on-error: false
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -var-file="staging.tfvars"
+        continue-on-error: false
+
+      - name: Send custom JSON data to Slack workflow
+        id: start_slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          # This data can be any valid JSON from a previous step in the GitHub Action
+          payload: |
+            {
+             "text": "*staging.chainlink.deepseas.com* deployment started"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Terraform Apply
+        id: apply
+        env: 
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}
+        run: terraform apply -no-color -var-file="staging.tfvars" --auto-approve
+        continue-on-error: false
+      
+      - name: Send custom JSON data to Slack workflow
+        id: complete_slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          # This data can be any valid JSON from a previous step in the GitHub Action
+          payload: |
+            {
+             "text": "*staging.chainlink.deepseas.com* deployment completed"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
