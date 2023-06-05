@@ -178,6 +178,8 @@ jobs:
     needs: 
       - terraform_plan
       - build_docker_image
+      - tests
+      - label
     if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     concurrency:
