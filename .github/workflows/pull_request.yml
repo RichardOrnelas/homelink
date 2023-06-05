@@ -1,9 +1,8 @@
-name: "New Pull Request"
+name: "PR Test Environment"
 
 on:
   pull_request:
     branches: ["main"]
-    # types: [opened]
 
 jobs:
   label:
@@ -80,12 +79,6 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@master
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            infrastructure:
-              - '.infrastructure/**'
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.4.6
@@ -120,24 +113,40 @@ jobs:
         run: terraform plan -no-color -var-file="sandbox.tfvars"
         continue-on-error: true
 
-      - name: Terraform Format Comment
+      - name: Find Comment
+        uses: peter-evans/find-comment@v2
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: "Terraform"
+
+      - name: Create comment
+        if: steps.fc.outputs.comment-id == ''
         uses: peter-evans/create-or-update-comment@v3
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            #### Terraform Format and Style
-            ${{ steps.fmt.outcome }}
-            #### Terraform Validation
-            ${{ steps.validate.outcome }}
-            #### Terraform Plan 
-            ${{ steps.plan.outcome }}
-          reactions: '+1'
+            ## Terraform
+            Terraform Format and Style: *${{ steps.fmt.outcome }}*
+            Terraform Validation: *${{ steps.validate.outcome }}*
+            Terraform Plan: *${{ steps.plan.outcome }}*
+          reactions: 'hooray'
+
+      - name: Update comment
+        if: steps.fc.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          body: |
+            ## Terraform
+            Terraform Format and Style: *${{ steps.fmt.outcome }}*
+            Terraform Validation: *${{ steps.validate.outcome }}*
+            Terraform Plan: *${{ steps.plan.outcome }}*
+          reactions: 'hooray'
   
   build_docker_image:
     name: Build Docker Image
-    needs: 
-      - terraform_plan
-      - tests
     if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
@@ -178,10 +187,12 @@ jobs:
 
   deploy_test_env:
     name: Deploy Test Environment
+    if: ${{ ! github.event.pull_request.draft }}
     needs: 
       - terraform_plan
       - build_docker_image
-    if: ${{ ! github.event.pull_request.draft }}
+      - tests
+      - label
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.ref }}-test-env
@@ -198,6 +209,7 @@ jobs:
       taskSG:         ${{ steps.tf_outputs.outputs.sg }}
       wwwFQDN:        ${{ steps.tf_outputs.outputs.fqdn }}
       ecsClusterName: ${{ steps.tf_outputs.outputs.cluster }}
+      dockerImage:    ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
     steps: 
       - uses: actions/checkout@master
       - uses: hashicorp/setup-terraform@v2
@@ -269,6 +281,7 @@ jobs:
 
       - name: Run Migration Task
         id: db-migration
+        continue-on-error: true
         run: |
           echo "Running task with Task Definition ARN ${{ needs.deploy_test_env.outputs.taskDefArn }}"
           TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
@@ -278,11 +291,45 @@ jobs:
           echo "Task started successfully. ARN: $TASK_ARN"
           aws ecs wait tasks-stopped --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --tasks $TASK_ARN
 
-      - name: Test Environment Deployed Comment
+      - name: Find Comment
+        uses: peter-evans/find-comment@v2
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: "Deployed!"
+
+      - name: Create comment
+        if: steps.fc.outputs.comment-id == ''
         uses: peter-evans/create-or-update-comment@v3
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            The Test Environment has been deployed.
-            Preview available at [${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})
-          reactions: 'rocket'
+            ## Pull Request Deployed!
+            Preview URL: *[${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})*
+            Docker Image: *${{ needs.deploy_test_env.outputs.dockerImage }}*
+            ECS Cluster: *${{ steps.tf_outputs.outputs.cluster }}*
+            Terraform Workspace: *${{ steps.tf_outputs.outputs.cluster }}*
+          reactions: 'hooray'
+
+      - name: Update comment
+        if: steps.fc.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          body: |
+            ## Pull Request Deployed!
+            Preview URL: *[${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})*
+            Docker Image: *${{ needs.deploy_test_env.outputs.dockerImage }}*
+            ECS Cluster: *${{ needs.deploy_test_env.outputs.ecsClusterName }}*
+            Terraform Workspace: *${{ needs.deploy_test_env.outputs.ecsClusterName }}*
+
+            To check out the workspace locally, checkout this branch and...
+            ```
+            cd .infrastructure
+            terraform init
+            terraform workspace select ${{ needs.deploy_test_env.outputs.ecsClusterName }}
+            terraform plan
+            ```
+
+          reactions: 'hooray'

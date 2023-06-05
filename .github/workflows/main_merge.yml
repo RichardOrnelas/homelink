@@ -1,0 +1,74 @@
+name: "Deploy Sandbox Environment"
+
+on:
+  push:
+    branches:
+      - main
+  
+jobs:
+  deploy_sandbox:
+    runs-on: ubuntu-latest
+    permissions: 
+      contents: read
+    # should limit to one test run per branch that is PR'd
+    concurrency:
+      group: ${{ github.ref }}-test-env
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@master
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.4.6
+          
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Workspace
+        id: workspace
+        run: terraform workspace select sandbox
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -var-file="sandbox.tfvars"
+        continue-on-error: false
+
+      - name: Send custom JSON data to Slack workflow
+        id: start_slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          # This data can be any valid JSON from a previous step in the GitHub Action
+          payload: |
+            {
+             "text": "SANDBOX Deployment completed. sandbox.chainlink.deepseas.com"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Terraform Apply
+        id: apply
+        run: terraform apply -no-color -var-file="sandbox.tfvars" --auto-approve
+        continue-on-error: false
+      
+      - name: Send custom JSON data to Slack workflow
+        id: complete_slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          # This data can be any valid JSON from a previous step in the GitHub Action
+          payload: |
+            {
+             "text": "SANDBOX Deployment completed. sandbox.chainlink.deepseas.com"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
