@@ -1,5 +1,9 @@
 # Homelink
 <!-- TODO: Project Description -->
+[![PR Test Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request.yml/badge.svg?event=pull_request)](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request.yml)
+[![Test Environment Cleanup](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request_closed.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request_closed.yml)
+[![Deploy Sandbox Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/main_merge.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/main_merge.yml)
+[![Deploy Staging Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml)
 
 ## Architecture
 
