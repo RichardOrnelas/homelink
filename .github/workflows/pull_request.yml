@@ -3,6 +3,7 @@ name: "PR Test Environment"
 on:
   pull_request:
     branches: ["main"]
+    types: [opened, reopened, edited]
 
 jobs:
   label:
