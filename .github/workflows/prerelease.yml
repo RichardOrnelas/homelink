@@ -3,3 +3,14 @@ name: "Update Staging Environment"
 on:
   release:
     types: [prereleased]
+
+jobs:
+  deploy_staging:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency: 
+      group: staging
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@master
