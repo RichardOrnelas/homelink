@@ -47,14 +47,14 @@ jobs:
 
       - name: Terraform Workspace
         id: workspace
-        run: terraform workspace select staging
+        run: terraform workspace select production
         continue-on-error: false
 
       - name: Terraform Plan
         id: plan
         env: 
           TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}
-        run: terraform plan -no-color -var-file="staging.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}"
+        run: terraform plan -no-color -var-file="production.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}"
         continue-on-error: false
 
       - name: Send custom JSON data to Slack workflow
@@ -64,7 +64,7 @@ jobs:
           # This data can be any valid JSON from a previous step in the GitHub Action
           payload: |
             {
-             "text": "*staging.chainlink.deepseas.com* deployment started"
+             "text": "*production.chainlink.deepseas.com* deployment started"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -73,7 +73,7 @@ jobs:
         id: apply
         env: 
           TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}
-        run: terraform apply -no-color -var-file="staging.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}" --auto-approve
+        run: terraform apply -no-color -var-file="production.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}" --auto-approve
         continue-on-error: false
 
       - name: Set Outputs
@@ -125,7 +125,7 @@ jobs:
           # This data can be any valid JSON from a previous step in the GitHub Action
           payload: |
             {
-             "text": "*staging.chainlink.deepseas.com* deployment completed"
+             "text": "*chainlink.deepseas.com* deployment completed"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
