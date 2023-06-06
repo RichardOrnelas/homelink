@@ -7,7 +7,7 @@ on:
   
 jobs:
   build_docker_image:
-    name: Tag Docker Image
+    name: Build Docker Image
     if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
