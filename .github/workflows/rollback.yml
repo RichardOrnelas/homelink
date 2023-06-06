@@ -15,7 +15,7 @@ on:
         required: true
         type: string
       rollback:
-        description: 'Rollback required?'
+        description: 'DB Rollback required?'
         required: true
         type: boolean
 
