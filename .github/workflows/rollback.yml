@@ -39,6 +39,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Validate Docker Image with Tag
+        id: docker
         run: aws ecr batch-get-image --repository-name homelink --image-ids imageTag=${{ inputs.tag }} --output json | jq --raw-output --join-output '.images[0].imageManifest')
         continue-on-error: false
       
@@ -85,11 +86,6 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-      - name: Database Rollback
-        id: rollback
-        if: inputs.rollback == 'true'
-        run: 
 
       - name: Terraform Apply
         id: apply

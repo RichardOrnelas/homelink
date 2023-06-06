@@ -115,12 +115,15 @@ jobs:
 
       - name: Terraform Apply
         id: apply
-        run: terraform apply -var-file="sandbox.tfvars" -var="docker_image=${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}" --auto-approve
+        env: 
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
+        run: terraform apply --auto-approve
         continue-on-error: false
 
       - name: Set Outputs
         id: tf_outputs
         run: |
+          echo "task=$(terraform output -raw worker_task_def_arn)" >> "$GITHUB_OUTPUT"
           echo "subnet=$(terraform output -raw task_subnet)" >> "$GITHUB_OUTPUT"
           echo "sg=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
           echo "fqdn=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
