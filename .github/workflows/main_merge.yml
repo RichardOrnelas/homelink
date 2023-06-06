@@ -115,7 +115,7 @@ jobs:
 
       - name: Terraform Apply
         id: apply
-        run: terraform apply -no-color -var-file="sandbox.tfvars" -var="docker_image=${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}" --auto-approve
+        run: terraform apply -var-file="sandbox.tfvars" -var="docker_image=${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}" --auto-approve
         continue-on-error: false
 
       - name: Set Outputs
@@ -126,6 +126,7 @@ jobs:
           echo "sg=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
           echo "fqdn=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
           echo "cluster=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+
   migration:
     name: Setup database
     needs: deploy_sandbox
