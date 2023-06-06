@@ -52,6 +52,12 @@ jobs:
     needs: build_docker_image
     permissions: 
       contents: read
+    concurrency:
+      group: main
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: .infrastructure
     outputs:
       taskDefArn:     ${{ steps.tf_outputs.outputs.task }}
       taskSubnet:     ${{ steps.tf_outputs.outputs.subnet }}
@@ -59,12 +65,7 @@ jobs:
       wwwFQDN:        ${{ steps.tf_outputs.outputs.fqdn }}
       ecsClusterName: ${{ steps.tf_outputs.outputs.cluster }}
       dockerImage:    ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
-    concurrency:
-      group: main
-      cancel-in-progress: false
-    defaults:
-      run:
-        working-directory: .infrastructure
+    
     steps:
       - uses: actions/checkout@master
       - uses: hashicorp/setup-terraform@v2
