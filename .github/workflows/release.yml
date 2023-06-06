@@ -1,30 +1,26 @@
-name: "Deploy Sandbox Environment"
-
+name: "Deploy Production Environment"
 on:
-  push:
-    branches:
-      - main
-  
+  release:
+    types: [released]
 jobs:
-  build_docker_image:
-    name: Tag Docker Image
-    if: ${{ ! github.event.pull_request.draft }}
+  deploy_production:
+    name: Deploy Production Environment
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency: 
+      group: production
+      cancel-in-progress: false
+    outputs:
+      taskDefArn:     ${{ steps.tf_outputs.outputs.task }}
+      taskSubnet:     ${{ steps.tf_outputs.outputs.subnet }}
+      taskSG:         ${{ steps.tf_outputs.outputs.sg }}
+      wwwFQDN:        ${{ steps.tf_outputs.outputs.fqdn }}
+      ecsClusterName: ${{ steps.tf_outputs.outputs.cluster }}
+      dockerImage:    ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
+
     steps:
-      - name: "Checkout"
-        uses: actions/checkout@v2
-
-      - uses: ruby/setup-ruby@v1
-        with:
-          bundler-cache: true
-
-      - name: set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      - name: set up Docker Build
-        uses: docker/setup-buildx-action@v2
-        with:
-          driver: docker-container
+      - uses: actions/checkout@master
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -38,50 +34,6 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
       
-      - name: build the Docker image and Push
-        uses: docker/build-push-action@v3
-        with:
-          push: true
-          tags: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  deploy_sandbox:
-    name: Deploy Sandbox
-    runs-on: ubuntu-latest
-    needs: build_docker_image
-    permissions: 
-      contents: read
-    outputs:
-      taskDefArn:     ${{ steps.tf_outputs.outputs.task }}
-      taskSubnet:     ${{ steps.tf_outputs.outputs.subnet }}
-      taskSG:         ${{ steps.tf_outputs.outputs.sg }}
-      wwwFQDN:        ${{ steps.tf_outputs.outputs.fqdn }}
-      ecsClusterName: ${{ steps.tf_outputs.outputs.cluster }}
-      dockerImage:    ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
-    concurrency:
-      group: main
-      cancel-in-progress: false
-    defaults:
-      run:
-        working-directory: .infrastructure
-    steps:
-      - uses: actions/checkout@master
-      - uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.4.6
-          
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
       - name: Terraform Init
         id: init
         run: terraform init
@@ -92,12 +44,14 @@ jobs:
 
       - name: Terraform Workspace
         id: workspace
-        run: terraform workspace select sandbox
+        run: terraform workspace select staging
         continue-on-error: false
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color -var-file="sandbox.tfvars"
+        env: 
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}
+        run: terraform plan -no-color -var-file="staging.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}"
         continue-on-error: false
 
       - name: Send custom JSON data to Slack workflow
@@ -107,14 +61,16 @@ jobs:
           # This data can be any valid JSON from a previous step in the GitHub Action
           payload: |
             {
-             "text": "*sandbox.chainlink.deepseas.com* deployment started"
+             "text": "*staging.chainlink.deepseas.com* deployment started"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Terraform Apply
         id: apply
-        run: terraform apply -no-color -var-file="sandbox.tfvars" -var="docker_image=${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}" --auto-approve
+        env: 
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}
+        run: terraform apply -no-color -var-file="staging.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}" --auto-approve
         continue-on-error: false
 
       - name: Set Outputs
@@ -125,9 +81,10 @@ jobs:
           echo "sg=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
           echo "fqdn=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
           echo "cluster=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+
   migration:
     name: Setup database
-    needs: deploy_sandbox
+    needs: deploy_production
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.ref }}-migration-env
@@ -145,13 +102,13 @@ jobs:
         id: db-migration
         continue-on-error: true
         run: |
-          echo "Running task with Task Definition ARN ${{ needs.deploy_sandbox.outputs.taskDefArn }}"
-          TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_sandbox.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
-          --task-definition ${{ needs.deploy_sandbox.outputs.taskDefArn }} \
-          --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_sandbox.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_sandbox.outputs.taskSG }}\"]}}" \
+          echo "Running task with Task Definition ARN ${{ needs.deploy_production.outputs.taskDefArn }}"
+          TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_production.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
+          --task-definition ${{ needs.deploy_production.outputs.taskDefArn }} \
+          --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_production.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_production.outputs.taskSG }}\"]}}" \
           --overrides "{\"containerOverrides\":[{\"name\":\"homelink-worker\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}" --output text --query tasks[0].taskArn)
           echo "Task started successfully. ARN: $TASK_ARN"
-          aws ecs wait tasks-stopped --cluster ${{ needs.deploy_sandbox.outputs.ecsClusterName }} --tasks $TASK_ARN
+          aws ecs wait tasks-stopped --cluster ${{ needs.deploy_production.outputs.ecsClusterName }} --tasks $TASK_ARN
           
   notify:
     name: Send Slack Notification
@@ -165,7 +122,7 @@ jobs:
           # This data can be any valid JSON from a previous step in the GitHub Action
           payload: |
             {
-             "text": "*sandbox.chainlink.deepseas.com* deployment completed"
+             "text": "*staging.chainlink.deepseas.com* deployment completed"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

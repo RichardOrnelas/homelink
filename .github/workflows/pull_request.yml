@@ -264,15 +264,7 @@ jobs:
     concurrency:
       group: ${{ github.ref }}-migration-env
       cancel-in-progress: false
-    defaults:
-      run:
-        working-directory: .infrastructure
-    permissions:
-      pull-requests: write
-      contents: read
-
     steps: 
-      - uses: actions/checkout@master
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -292,7 +284,22 @@ jobs:
           --overrides "{\"containerOverrides\":[{\"name\":\"homelink-worker\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}" --output text --query tasks[0].taskArn)
           echo "Task started successfully. ARN: $TASK_ARN"
           aws ecs wait tasks-stopped --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --tasks $TASK_ARN
-
+  
+  comment:
+    name: Comment on Pull Request
+    needs: migration
+    if: ${{ ! github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}-migration-env
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: .infrastructure
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
       - name: Find Comment
         uses: peter-evans/find-comment@v2
         id: fc

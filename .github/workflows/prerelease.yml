@@ -6,12 +6,20 @@ on:
 
 jobs:
   deploy_staging:
+    name: Deploy Staging
     runs-on: ubuntu-latest
     permissions:
       contents: read
     concurrency: 
       group: staging
       cancel-in-progress: false
+    outputs:
+      taskDefArn:     ${{ steps.tf_outputs.outputs.task }}
+      taskSubnet:     ${{ steps.tf_outputs.outputs.subnet }}
+      taskSG:         ${{ steps.tf_outputs.outputs.sg }}
+      wwwFQDN:        ${{ steps.tf_outputs.outputs.fqdn }}
+      ecsClusterName: ${{ steps.tf_outputs.outputs.cluster }}
+      dockerImage:    ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
     steps:
       - uses: actions/checkout@master
 
@@ -72,9 +80,51 @@ jobs:
           TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}
         run: terraform apply -no-color -var-file="staging.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}" --auto-approve
         continue-on-error: false
-      
+
+      - name: Set Outputs
+        id: tf_outputs
+        run: |
+          echo "task=$(terraform output -raw worker_task_def_arn)" >> "$GITHUB_OUTPUT"
+          echo "subnet=$(terraform output -raw task_subnet)" >> "$GITHUB_OUTPUT"
+          echo "sg=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
+          echo "fqdn=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
+          echo "cluster=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+
+  migration:
+    name: Setup database
+    needs: deploy_staging
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}-migration-env
+      cancel-in-progress: false
+    steps: 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Run Migration Task
+        id: db-migration
+        continue-on-error: true
+        run: |
+          echo "Running task with Task Definition ARN ${{ needs.deploy_staging.outputs.taskDefArn }}"
+          TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_staging.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
+          --task-definition ${{ needs.deploy_staging.outputs.taskDefArn }} \
+          --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_staging.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_staging.outputs.taskSG }}\"]}}" \
+          --overrides "{\"containerOverrides\":[{\"name\":\"homelink-worker\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}" --output text --query tasks[0].taskArn)
+          echo "Task started successfully. ARN: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster ${{ needs.deploy_staging.outputs.ecsClusterName }} --tasks $TASK_ARN
+          
+  notify:
+    name: Send Slack Notification
+    needs: migration
+    runs-on: ubuntu-latest
+    steps:
       - name: Send custom JSON data to Slack workflow
-        id: complete_slack
+        id: start_slack
         uses: slackapi/slack-github-action@v1.24.0
         with:
           # This data can be any valid JSON from a previous step in the GitHub Action
