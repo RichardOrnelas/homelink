@@ -121,7 +121,7 @@ jobs:
       - name: Set Outputs
         id: tf_outputs
         run: |
-          echo "task=$(terraform output -raw worker_task_def_arn)" >> "$GITHUB_OUTPUT"
+          echo "task=$(terraform output worker_task_def_arn)" >> "$GITHUB_OUTPUT"
           echo "subnet=$(terraform output -raw task_subnet)" >> "$GITHUB_OUTPUT"
           echo "sg=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
           echo "fqdn=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
