@@ -1,13 +1,17 @@
 # Homelink
 [![PR Test Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request.yml/badge.svg?event=pull_request)](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request.yml)
 [![Test Environment Cleanup](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request_closed.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request_closed.yml)
-[![Deploy Sandbox Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/main_merge.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/main_merge.yml)
-[![Deploy Staging Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml)
+
+[![Deploy Sandbox Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/main_merge.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/main_merge.yml) [Sandbox Environment](https://sandbox.chainlink.deepseas.dev/)
+
+[![Deploy Staging Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml) [Staging Environment](https://staging.chainlink.deepseas.dev/)
+
+[![Deploy Production Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/release.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/release.yml) [Production Environment](https://chainlink.deepseas.dev/)
 
 ## Description
 Homelink is a Ruby on Rails application that houses a simple user directory service. It allows users to create a profile, login to that profile, and update their profile, including a profile picture. It stores this data in a Postgres database, and leverages an Active Job processor to handle async operations using a queueing strategy.
 
-### AWS Resources
+## AWS Resources
 I made an assumption that the service would live inside a current VPC, so it begins with the assumption that there is a VPC provided with some sort of tagging strategy. I built a new VPC for this project, but that is not a requirement. Simply need to update tagging in the infrastructure `.infrastructure/main.tf` to update the VPC.
 
 Under the hood in AWS, Homelink leverages the following:
@@ -17,7 +21,7 @@ Under the hood in AWS, Homelink leverages the following:
 * AWS Simple Queue Service for high and low queues, and corresponding dead letter queues.
 * AWS S3 bucket for storing attachments 
 
-### Dependencies and Requirements
+## Dependencies and Requirements
 * terraform 1.4.6
 * ruby 3.2.2
 * postgres 15.2 
@@ -25,10 +29,8 @@ Under the hood in AWS, Homelink leverages the following:
 * AWS credentials for the sandbox environment. This repo is currently setup to reference your default credentials.
 * See [setup](###-Setup) for local development setup
 
-## CI/CD
-flow, secrets, processes, actions, environments
 
-### Operating Environments
+## Operating Environments
 These operating environments are managed in the Terraform Workspaces.
 
 - *sandbox* : For Developers to test deployments and integrations with the rest of the microservices with low risk and service level expectations.
@@ -37,7 +39,7 @@ These operating environments are managed in the Terraform Workspaces.
 
 The current automation also provides a temporary operating environment for each non-draft Pull Request. Those environments are dynamically named based on the Pull Request ID.
 
-### Flow
+## CI/CD Flow
 1. New branch from `main`, ideally named from Github Issue like `#20/Do-the-thing` or with ownership like `Username/#20`
 2. Make changes, creating a *draft* Pull Request for easy collaboration without triggering any Github Deployment Actions.
 3. When you are ready to party, undraft. Automated workflows including testing, linting and validations will run and complete (hopefully).
@@ -49,19 +51,17 @@ The current automation also provides a temporary operating environment for each 
 9. QA efforts prove uneventful. Perfect. Sounds like Production o'clock. In Github, edit the release and uncheck the `prerelease` box and *Save*.
 10. Apply sunscreen, unfold beach chair, and bask in orange glow of a new feature making it all the way to [**production**](https://chainlink.deepseas.dev)
 
-### Secrets and Configurations
-<!-- TODO: Update this -->
-- SSM
-- Github Actions
-- tfvars
-- rails env files
+## Rollback Procedures
+# TODO: add
+## Secrets and Configurations
+This application leverages a few ways to manage configurations and secrets
 
+- **SSM** - The ECS Task Definitions use SSM to pass the Database URL and S3 application bucket from the Terraform CI process.
+- **.env.development** - This file holds the local configurations to launch the Rails app. These values are managed as environment variables in the AWS environments.
+- **Github Project Secrets** - There are three secret values that are only used in the CI pipelines in github. They include AWS Credentials and a Slack Webhook URL.
+- **.tfvars** - All non-sensitive configuration variables for the Terraform infrastructure are stored in these files.
 
-
-
-## Local Development
-
-### Setup
+## Setup Local Machine for Development
 To setup your local developer environment, clone the repository to your local machine, and install these dependencies.
 
 NOTE: To build and run the Docker image locally, you will need Docker installed.
@@ -112,156 +112,23 @@ NOTE: To build and run the Docker image locally, you will need Docker installed.
   $HOME/.asdf/installs/postgres/15.2/bin/pg_ctl -D $HOME/.asdf/installs/postgres/15.2/data -l logfile start
   ```
 
+## Working with Rails
+Here are some tips for local development.
 
-### Working with Rails
+- Before you do anything, `bundle`
+- To prepare the database, `rails db:setup`
+- To drop the database and start fresh, `rails db:reset`
+- To start the Rails server locally, `rails s`. This will be available at [localhost:8080](https://localhost:8080)
+- To run the test suite, `bundle exec rspec`
 
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-
-### Working with Terraform
-
-
-
-###
-
-
-CI Variable List
-AWS_REGION
-AWS_ACCOUNT_ID
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-
-TF variables
-variable "project"
-variable "region"
-variable "ip_whitelist"
-variable "db_password"
-variable "db_postgres_version"
-variable "db_parameter_group"
-variable "db_instance_class"
-
-Ruby Variables 
-RAILS_LOG_TO_STDOUT=true
-LOG_LEVEL=info
-PORT=8080
-DATABASE_URL="postgres://localhost"
-RAILS_ENV=development
-APP_BUCKET_NAME="foo"
-DEFAULT_QUEUE="foo"
-
-This README would normally document whatever steps are necessary to get the
-application up and running.
-
-Things you may want to cover:
-
-## System Setup
-- _Optional_ Install Homebrew
-  ```
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    echo 'export PATH="/usr/local/sbin:$PATH"' >> ~/.zshrc
-    source ~/.zshrc # If you see weird behavior, restart your terminal
-    brew doctor
-  ```
-- Install `asdf`
-  ```
-    brew install coreutils curl git gpg gawk zsh yarn asdf
-    echo -e "\n. $(brew --prefix asdf)/asdf.sh" >> ~/.zshrc
-    echo 'legacy_version_file = yes' >> ~/.asdfrc
-  ```
-- Install Ruby
-  ```
-  asdf plugin add ruby
-  asdf install ruby 3.2.2
-  asdf global ruby 3.2.2
-  ```
-- Install PostGres
-  ```
-  asdf plugin add postgres
-  asdf install postgres 15.2
-  asdf global postgres 15.2
-  $HOME/.asdf/installs/postgres/15.2/bin/pg_ctl -D $HOME/.asdf/installs/postgres/15.2/data -l logfile start
-  ```
-- Install Rails
-  `gem install bundler rails`
-- Bundle
-  `bundle install`
-- Setup Database
-  `RAILS_ENV=development rails db:create db:migrate`
-
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
-# homelink
-Chainlink Take Home Project
-
-
-# README
-
-This README would normally document whatever steps are necessary to get the
-application up and running.
-
-Things you may want to cover:
-
-* Ruby version
-
-* System dependencies
-
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
-
-## Infrastructure setup
-1. create readme.
-2. .gitignore
-3. .toolversions and set versions
-  ```
-  touch .toolversions
-  asdf local terraform 1.4.6
-  ```
-4. Pre-commit install and Terraform config `pre-commit install`
-  ```
-  touch.pre-commit-config.yaml
-  pre-commit install
-  ```
-5. create `infrastructure` directory
-
-Setup the CI/CD
-
-## nice to hives
-precommit
-code change labels based on paths [infra, backend, database migration, SPA]
-
-# 
+## Working with Terraform
+1. Change to the .infrastructure directory `cd .infrastructure`
+2. Initialize Terraform `terraform init`
+3. Make updates in the `main.tf` file, adding any variables to `variables.tf` and outputs to `outputs.tf`
+4. Select the Sandbox Workspace `terraform workspace select sandbox`
+5. Format the Terraform files `terraform fmt -check`
+6. Validate configurations `terraform validate`
+7. Plan to see proposed changes are what you expect `terraform plan -var-file="sandbox.tfvars"`
 
 # Terraform Docs
 
