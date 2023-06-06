@@ -1,11 +1,10 @@
 # Homelink
-<!-- TODO: Project Description -->
 [![PR Test Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request.yml/badge.svg?event=pull_request)](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request.yml)
 [![Test Environment Cleanup](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request_closed.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/pull_request_closed.yml)
 [![Deploy Sandbox Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/main_merge.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/main_merge.yml)
 [![Deploy Staging Environment](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml/badge.svg)](https://github.com/RichardOrnelas/homelink/actions/workflows/prerelease.yml)
 
-## Architecture
+## Description
 Homelink is a Ruby on Rails application that houses a simple user directory service. It allows users to create a profile, login to that profile, and update their profile, including a profile picture. It stores this data in a Postgres database, and leverages an Active Job processor to handle async operations using a queueing strategy.
 
 ### AWS Resources
@@ -23,14 +22,40 @@ Under the hood in AWS, Homelink leverages the following:
 * ruby 3.2.2
 * postgres 15.2 
 * nodejs 20.2.0
-* AWS credentials for the sandbox environment
+* AWS credentials for the sandbox environment. This repo is currently setup to reference your default credentials.
 * See [setup](###-Setup) for local development setup
-
-
 
 ## CI/CD
 flow, secrets, processes, actions, environments
+
 ### Operating Environments
+These operating environments are managed in the Terraform Workspaces.
+
+- *sandbox* : For Developers to test deployments and integrations with the rest of the microservices with low risk and service level expectations.
+- *staging* : Release candidates for integration and QA testing.
+- *production* : You know what it is.
+
+The current automation also provides a temporary operating environment for each non-draft Pull Request. Those environments are dynamically named based on the Pull Request ID.
+
+### Flow
+1. New branch from `main`, ideally named from Github Issue like `#20/Do-the-thing` or with ownership like `Username/#20`
+2. Make changes, creating a *draft* Pull Request for easy collaboration without triggering any Github Deployment Actions.
+3. When you are ready to party, undraft. Automated workflows including testing, linting and validations will run and complete (hopefully).
+4. Github Actions will deploy a temporary environment for your Pull Request. Subsequent updates to the Pull Request will be deployed to this infrastructure. That Github Action lives [here](.github/workflows/pull_request.yml)
+5. After reviewing the code changes and the preview URL as needed, approve the code, and merge the Pull Request to `main`. 
+6. With the Pull Request closed, the temporary Operating Environment is destroyed. Merge is not required for this operation. See the Action [here](.github/workflows/pull_request_closed.yml)
+7. With the merge to `main` branch, the [**sandbox**](https://sandbox.chainlink.deepseas.dev) environment is updated. That Github Workflow lives [here](.github/workflows/main_merge.yml)
+8. Whatever the reason, you create a new **Release** in Github with proper [semantic versioning](https://semver.org/),  and mark it as a `prerelease`. This deploys the [**staging**](https://staging.chainlink.deepseas.dev) environment.
+9. QA efforts prove uneventful. Perfect. Sounds like Production o'clock. In Github, edit the release and uncheck the `prerelease` box and *Save*.
+10. Apply sunscreen, unfold beach chair, and bask in orange glow of a new feature making it all the way to [**production**](https://chainlink.deepseas.dev)
+
+### Secrets and Configurations
+<!-- TODO: Update this -->
+- SSM
+- Github Actions
+- tfvars
+- rails env files
+
 
 
 
@@ -50,37 +75,42 @@ NOTE: To build and run the Docker image locally, you will need Docker installed.
   ```
 - Install `asdf`
   ```
-    brew install coreutils curl git gpg gawk zsh yarn asdf
-    echo -e "\n. $(brew --prefix asdf)/asdf.sh" >> ~/.zshrc
-    echo 'legacy_version_file = yes' >> ~/.asdfrc
+  brew install coreutils curl git gpg gawk zsh yarn asdf
+  echo -e "\n. $(brew --prefix asdf)/asdf.sh" >> ~/.zshrc
+  echo 'legacy_version_file = yes' >> ~/.asdfrc
   ```
-- Install Terraform
+- Install `awscli`
+  ```
+  asdf plugin add awscli
+  asdf install awscli latest
+  asdf global awscli latest
+  ```
+- Install `terraform`
   ```
   asdf plugin add terraform
   asdf install terraform 1.4.6
   asdf global terraform 1.4.6
   ```
-- Install Ruby
+- Install `ruby` and `rails`
   ```
   asdf plugin add ruby
   asdf install ruby 3.2.2
   asdf global ruby 3.2.2
+  gem install bundler rails
   ```
-- Install Node
+- Install `nodejs`
   ```
   asdf plugin add nodejs
   asdf install nodejs latest
   asdf global nodejs latest
   ```
-- Install PostGres
+- Install `postgresql`
   ```
   asdf plugin add postgres
   asdf install postgres 15.2
   asdf global postgres 15.2
   $HOME/.asdf/installs/postgres/15.2/bin/pg_ctl -D $HOME/.asdf/installs/postgres/15.2/data -l logfile start
   ```
-- Install Rails
-  `gem install bundler rails`
 
 
 ### Working with Rails
