@@ -5,8 +5,39 @@ on:
     types: [prereleased]
 
 jobs:
+  tag_image:
+    name: Re-Tag Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: staging
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@master
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Re-Tag Docker Image with Tag
+        run: |
+          echo "TAG: ${{ github.event.release.tag_name }}, COMMIT: ${{ github.sha }}"
+          MANIFEST=$(aws ecr batch-get-image --repository-name homelink --image-ids imageTag=${{ github.sha }} --output json | jq --raw-output --join-output '.images[0].imageManifest')
+          echo "Image Manifest $MANIFEST"
+          aws ecr put-image --repository-name homelink --image-tag ${{ github.event.release.tag_name }} --image-manifest "$MANIFEST"
+
   deploy_staging:
     name: Deploy Staging
+    needs: tag_image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,14 +68,7 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Re-Tag Docker Image with Tag
-        run: |
-          echo "TAG: ${{ github.event.release.tag_name }}, COMMIT: ${{ github.sha }}"
-          MANIFEST=$(aws ecr batch-get-image --repository-name homelink --image-ids imageTag=${{ github.sha }} --output json | jq --raw-output --join-output '.images[0].imageManifest')
-          echo "Image Manifest $MANIFEST"
-          aws ecr put-image --repository-name homelink --image-tag ${{ github.event.release.tag_name }} --image-manifest "$MANIFEST"
-      
+     
       - name: Terraform Init
         id: init
         run: terraform init
