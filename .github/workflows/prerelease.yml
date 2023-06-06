@@ -40,7 +40,7 @@ jobs:
           echo "TAG: ${{ github.event.release.tag_name }}, COMMIT: ${{ github.sha }}"
           MANIFEST=$(aws ecr batch-get-image --repository-name homelink --image-ids imageTag=${{ github.sha }} --output json | jq --raw-output --join-output '.images[0].imageManifest')
           echo "Image Manifest $MANIFEST"
-          aws ecr put-image --repository-name hive --image-tag ${{ github.event.release.tag_name }} --image-manifest "$MANIFEST"
+          aws ecr put-image --repository-name homelink --image-tag ${{ github.event.release.tag_name }} --image-manifest "$MANIFEST"
       
       - name: Terraform Init
         id: init
