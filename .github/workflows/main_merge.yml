@@ -8,7 +8,6 @@ on:
 jobs:
   build_docker_image:
     name: Build Docker Image
-    if: ${{ ! github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout"

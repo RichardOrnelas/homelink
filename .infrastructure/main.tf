@@ -442,10 +442,11 @@ resource "aws_ecs_service" "web" {
 
 
 locals {
-
+  image_list = split("/", var.docker_image)
   env_vars = {
     RAILS_MAX_THREADS = 8
     PORT              = 8080
+    GIT_COMMIT        = element(local.image_list, length(local.image_list) - 1)
     RAILS_ENV         = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
   }
 
@@ -489,19 +490,6 @@ resource "aws_ecs_task_definition" "web" {
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.platform_service.arn
 
-  # container_definitions = templatefile("${path.module}/web_container.tftpl",
-  #   {
-  #     cpu             = var.web_cpu
-  #     mem             = var.web_mem
-  #     image           = var.docker_image
-  #     environment     = terraform.workspace
-  #     rails_env       = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
-  #     region          = var.region
-  #     database_url    = "postgres://${aws_db_instance.primary.username}:${var.db_password}@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
-  #     app_bucket_name = aws_s3_bucket.bucket.id
-  #     default_queue   = "${var.project}_${terraform.workspace}_main"
-  #   }
-  # )
   container_definitions = jsonencode([
     merge(local.base_app_container, {
       name = "homelink-web"
@@ -573,19 +561,6 @@ resource "aws_ecs_task_definition" "worker" {
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.platform_service.arn
 
-  # container_definitions = templatefile("${path.module}/worker_container.tftpl",
-  #   {
-  #     cpu             = var.worker_cpu
-  #     mem             = var.worker_mem
-  #     image           = var.docker_image
-  #     environment     = terraform.workspace
-  #     rails_env       = terraform.workspace == "production" || terraform.workspace == "staging" ? terraform.workspace : "sandbox"
-  #     region          = var.region
-  #     database_url    = "postgres://${aws_db_instance.primary.username}:${var.db_password}@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
-  #     app_bucket_name = aws_s3_bucket.bucket.id
-  #     default_queue   = "${var.project}_${terraform.workspace}_main"
-  #   }
-  # )
   container_definitions = jsonencode([
     merge(local.base_app_container, {
       name = "homelink-worker"
