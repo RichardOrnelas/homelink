@@ -40,7 +40,7 @@ jobs:
 
       - name: Validate Docker Image with Tag
         id: docker
-        run: aws ecr batch-get-image --repository-name homelink --image-ids imageTag=${{ inputs.tag }} --output json | jq --raw-output --join-output '.images[0].imageManifest')
+        run: aws ecr batch-get-image --repository-name homelink --image-ids imageTag=${{ inputs.tag }} --output json | jq --raw-output --join-output '.images[0].imageManifest'
         continue-on-error: false
       
       - name: Set Output
