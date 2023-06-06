@@ -49,7 +49,7 @@ variable "web_mem" {
 variable "web_count" {
   type        = number
   description = "# of tasks running for web service"
-  default     = 2
+  default     = 1
 }
 
 variable "worker_cpu" {
@@ -67,7 +67,7 @@ variable "worker_mem" {
 variable "worker_count" {
   type        = number
   description = "# of tasks running for worker service"
-  default     = 2
+  default     = 1
 }
 
 variable "docker_image" {
