@@ -13,6 +13,9 @@ jobs:
     concurrency: 
       group: staging
       cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: .infrastructure
     outputs:
       taskDefArn:     ${{ steps.tf_outputs.outputs.task }}
       taskSubnet:     ${{ steps.tf_outputs.outputs.subnet }}
