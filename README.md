@@ -12,6 +12,8 @@
 Homelink is a Ruby on Rails application that houses a simple user directory service. It allows users to create a profile, login to that profile, and update their profile, including a profile picture. It stores this data in a Postgres database, and leverages an Active Job processor to handle async operations using a queueing strategy.
 
 ## AWS Resources
+![AWS Infrastructure](.github/chart.svg "AWS Infrastructure")
+
 I made an assumption that the service would live inside a current VPC, so it begins with the assumption that there is a VPC provided with some sort of tagging strategy. I built a new VPC for this project, but that is not a requirement. Simply need to update tagging in the infrastructure `.infrastructure/main.tf` to update the VPC.
 
 Under the hood in AWS, Homelink leverages the following:

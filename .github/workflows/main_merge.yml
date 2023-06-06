@@ -156,7 +156,7 @@ jobs:
           TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_sandbox.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
           --task-definition ${{ needs.deploy_sandbox.outputs.taskDefArn }} \
           --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_sandbox.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_sandbox.outputs.taskSG }}\"]}}" \
-          --overrides "{\"containerOverrides\":[{\"name\":\"homelink-worker\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}")
+          --overrides "{\"containerOverrides\":[{\"name\":\"homelink-worker\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}" --output text --query tasks[0].taskArn)
           echo "Task started successfully. ARN: $TASK_ARN"
           aws ecs wait tasks-stopped --cluster ${{ needs.deploy_sandbox.outputs.ecsClusterName }} --tasks $TASK_ARN
           
