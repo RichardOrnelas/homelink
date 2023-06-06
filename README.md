@@ -41,10 +41,10 @@ The current automation also provides a temporary operating environment for each 
 1. New branch from `main`, ideally named from Github Issue like `#20/Do-the-thing` or with ownership like `Username/#20`
 2. Make changes, creating a *draft* Pull Request for easy collaboration without triggering any Github Deployment Actions.
 3. When you are ready to party, undraft. Automated workflows including testing, linting and validations will run and complete (hopefully).
-4. Github Actions will deploy a temporary environment for your Pull Request. Subsequent updates to the Pull Request will be deployed to this infrastructure. That Github Action lives [here](.github/workflows/pull_request.yml)
+4. Github Actions will deploy a temporary environment for your Pull Request. Subsequent updates to the Pull Request will be deployed to this infrastructure. That Github Action lives [here](.github/workflows/pull_request.yml).
 5. After reviewing the code changes and the preview URL as needed, approve the code, and merge the Pull Request to `main`. 
-6. With the Pull Request closed, the temporary Operating Environment is destroyed. Merge is not required for this operation. See the Action [here](.github/workflows/pull_request_closed.yml)
-7. With the merge to `main` branch, the [**sandbox**](https://sandbox.chainlink.deepseas.dev) environment is updated. That Github Workflow lives [here](.github/workflows/main_merge.yml)
+6. With the Pull Request closed, the temporary Operating Environment is destroyed. Merge is not required for this operation. See the Action [here](.github/workflows/pull_request_closed.yml).
+7. With the merge to `main` branch, the [**sandbox**](https://sandbox.chainlink.deepseas.dev) environment is updated. That Github Workflow lives [here](.github/workflows/main_merge.yml).
 8. Whatever the reason, you create a new **Release** in Github with proper [semantic versioning](https://semver.org/),  and mark it as a `prerelease`. This deploys the [**staging**](https://staging.chainlink.deepseas.dev) environment.
 9. QA efforts prove uneventful. Perfect. Sounds like Production o'clock. In Github, edit the release and uncheck the `prerelease` box and *Save*.
 10. Apply sunscreen, unfold beach chair, and bask in orange glow of a new feature making it all the way to [**production**](https://chainlink.deepseas.dev)
