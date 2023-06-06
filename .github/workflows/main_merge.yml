@@ -98,7 +98,10 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color -var-file="sandbox.tfvars"
+        env: 
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
+
+        run: terraform plan
         continue-on-error: false
 
       - name: Send custom JSON data to Slack workflow
