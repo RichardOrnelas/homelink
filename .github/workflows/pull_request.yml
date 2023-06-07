@@ -113,12 +113,17 @@ jobs:
       - name: Terraform Plan
         id: plan
         run: |
-          terraform plan -no-color -out=tfplan.txt -var-file='sandbox.tfvars'
+          terraform plan -no-color -var-file='sandbox.tfvars'
         continue-on-error: false
 
       - name: Terraform Output
         id: plan_output
-        run: echo "plan=$(cat tfplan.txt))" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "${{ steps.plan.outputs.stdout }}" | grep -v "Refreshing state...\|Reading...\|Read complete after" > plan-out.txt
+          cat plan-out.txt
+          echo 'plan_output<<EOF' >> $GITHUB_ENV
+          echo "$(cat plan-out.txt)" >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
         continue-on-error: false
 
       - name: Find Comment
@@ -139,7 +144,7 @@ jobs:
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
             Terraform Plan: *${{ steps.plan.outputs.outcome }}*
-            ${{ steps.plan_output.outputs.plan }}
+            ${{ steps.plan_output.outputs.plan_output }}
           reactions: 'eyes'
 
       - name: Update comment
