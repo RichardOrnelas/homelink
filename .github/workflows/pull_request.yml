@@ -112,7 +112,7 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: echo "plan=terraform plan -no-color -var-file='sandbox.tfvars'" >> $GITHUB_OUTPUT 
+        run: echo "plan=$(terraform plan -no-color -var-file='sandbox.tfvars')" >> $GITHUB_OUTPUT 
         continue-on-error: true
 
       - name: Find Comment
