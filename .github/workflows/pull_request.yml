@@ -83,7 +83,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.4.6
-          terraform_wrapper: false
+          terraform_wrapper: true
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -112,8 +112,8 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color | grep -E '(^.*[#~+-] .*|^[[:punct:]]|Plan)'
-        continue-on-error: false
+        run: terraform plan -no-color -detailed-exitcode | grep -E '(^.*[#~+-] .*|^[[:punct:]]|Plan)'
+        continue-on-error: true
 
       - name: Find Comment
         uses: peter-evans/find-comment@v2
