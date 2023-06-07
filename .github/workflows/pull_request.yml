@@ -14,9 +14,10 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@master
-      - uses: TimonVS/pr-labeler-action@v4
+      - uses: actions/labeler@v4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+          dot: true
 
   tests:
     name: Run Tests
