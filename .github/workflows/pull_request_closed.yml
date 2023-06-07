@@ -55,11 +55,3 @@ jobs:
           terraform workspace select default
           terraform workspace delete "pr-${{ github.event.number }}"
         continue-on-error: false
-      
-      - name: Test Environment Dismantled Comment
-        uses: peter-evans/create-or-update-comment@v3
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            The Test Environment has been dismantled.
-          reactions: '+1'
