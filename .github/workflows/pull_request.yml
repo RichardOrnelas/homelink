@@ -118,7 +118,7 @@ jobs:
 
       - name: Terraform Output
         id: plan_output
-        run: echo "plan=$(<tfplan.txt))" >> "$GITHUB_OUTPUT"
+        run: echo "plan=$(cat tfplan.txt))" >> "$GITHUB_OUTPUT"
         continue-on-error: false
 
       - name: Find Comment
