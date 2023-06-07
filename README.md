@@ -147,6 +147,7 @@ Here are some tips for local development.
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 4.67.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.5.1 |
 
 ## Modules
 
@@ -167,7 +168,15 @@ No modules.
 | [aws_ecr_repository.homelink](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecr_repository) | resource |
 | [aws_ecs_cluster.primary](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_cluster) | resource |
 | [aws_ecs_cluster_capacity_providers.primary](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_cluster_capacity_providers) | resource |
+| [aws_ecs_service.web](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service) | resource |
+| [aws_ecs_service.worker](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service) | resource |
+| [aws_ecs_task_definition.web](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
+| [aws_ecs_task_definition.worker](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
+| [aws_iam_role.ecs_execution](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role.ecs_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.platform_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.ecs_execution_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy.ecs_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy.platform_service_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_route53_record.www](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
 | [aws_s3_bucket.bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
@@ -178,6 +187,7 @@ No modules.
 | [aws_security_group_rule.alb_public_80_platform](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.ecs_self](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.ecs_sg_http](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
+| [aws_security_group_rule.ecs_sg_http2](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.ecs_sg_https](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.egress](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.rds_postgres_ecs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
@@ -186,7 +196,12 @@ No modules.
 | [aws_sqs_queue_policy.queue](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sqs_queue_policy) | resource |
 | [aws_ssm_parameter.APP_BUCKET](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
 | [aws_ssm_parameter.DATABASE_URL](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
+| [random_password.rds_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [aws_acm_certificate.primary](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/acm_certificate) | data source |
+| [aws_iam_policy_document.ecs_execution_grant](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_iam_policy_document.ecs_execution_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_iam_policy_document.ecs_service_grant](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_iam_policy_document.ecs_service_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.grant](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.platform_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.queue_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
@@ -201,25 +216,34 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_db_instance_class"></a> [db\_instance\_class](#input\_db\_instance\_class) | Size and Class for the RDS Postgres instance | `string` | `"db.t3.micro"` | no |
 | <a name="input_db_parameter_group"></a> [db\_parameter\_group](#input\_db\_parameter\_group) | Postgres database parameter group name | `string` | `"default.postgres15"` | no |
-| <a name="input_db_password"></a> [db\_password](#input\_db\_password) | Database Password | `string` | `"platform1234"` | no |
 | <a name="input_db_postgres_version"></a> [db\_postgres\_version](#input\_db\_postgres\_version) | Postgres database version | `string` | `"15.3"` | no |
+| <a name="input_docker_image"></a> [docker\_image](#input\_docker\_image) | Docker image to deploy | `string` | `"webdestroya/http-placeholder:latest"` | no |
 | <a name="input_ip_whitelist"></a> [ip\_whitelist](#input\_ip\_whitelist) | IP Whitelist for non-production | `list(any)` | <pre>[<br>  "0.0.0.0/0"<br>]</pre> | no |
-| <a name="input_project"></a> [project](#input\_project) | Name of the project | `string` | `"chainlink"` | no |
+| <a name="input_project"></a> [project](#input\_project) | Name of the project | `string` | `"homelink"` | no |
 | <a name="input_queues"></a> [queues](#input\_queues) | ## SQS ### | `list(string)` | <pre>[<br>  "main",<br>  "high"<br>]</pre> | no |
 | <a name="input_region"></a> [region](#input\_region) | AWS Region to deploy resources in | `string` | `"us-east-1"` | no |
+| <a name="input_web_count"></a> [web\_count](#input\_web\_count) | # of tasks running for web service | `number` | `1` | no |
+| <a name="input_web_cpu"></a> [web\_cpu](#input\_web\_cpu) | CPU units for web task | `number` | `512` | no |
+| <a name="input_web_mem"></a> [web\_mem](#input\_web\_mem) | Mem units for web task | `number` | `1024` | no |
+| <a name="input_worker_count"></a> [worker\_count](#input\_worker\_count) | # of tasks running for worker service | `number` | `1` | no |
+| <a name="input_worker_cpu"></a> [worker\_cpu](#input\_worker\_cpu) | CPU units for worker task | `number` | `512` | no |
+| <a name="input_worker_mem"></a> [worker\_mem](#input\_worker\_mem) | Mem units for worker task | `number` | `1024` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| <a name="output_app_bucket"></a> [app\_bucket](#output\_app\_bucket) | n/a |
-| <a name="output_db_arn"></a> [db\_arn](#output\_db\_arn) | n/a |
-| <a name="output_db_endpoint"></a> [db\_endpoint](#output\_db\_endpoint) | n/a |
-| <a name="output_private_subnets"></a> [private\_subnets](#output\_private\_subnets) | n/a |
-| <a name="output_public_subnets"></a> [public\_subnets](#output\_public\_subnets) | n/a |
-| <a name="output_sg_alb_public"></a> [sg\_alb\_public](#output\_sg\_alb\_public) | n/a |
-| <a name="output_sg_ecs"></a> [sg\_ecs](#output\_sg\_ecs) | n/a |
-| <a name="output_sg_rds"></a> [sg\_rds](#output\_sg\_rds) | n/a |
-| <a name="output_target_group_arn"></a> [target\_group\_arn](#output\_target\_group\_arn) | n/a |
-| <a name="output_www_fqdn"></a> [www\_fqdn](#output\_www\_fqdn) | n/a |
+| <a name="output_app_bucket"></a> [app\_bucket](#output\_app\_bucket) | Application AWS S3 bucket name |
+| <a name="output_db_arn"></a> [db\_arn](#output\_db\_arn) | RDS PostGres database ARN |
+| <a name="output_db_endpoint"></a> [db\_endpoint](#output\_db\_endpoint) | RDS instance endpoint URL as postgres URL |
+| <a name="output_ecs_cluster_name"></a> [ecs\_cluster\_name](#output\_ecs\_cluster\_name) | AWS ECS Cluster Name |
+| <a name="output_private_subnets"></a> [private\_subnets](#output\_private\_subnets) | List of private subnets imported from the VPC |
+| <a name="output_public_subnets"></a> [public\_subnets](#output\_public\_subnets) | List of public subnets imported from the VPC |
+| <a name="output_sg_alb_public"></a> [sg\_alb\_public](#output\_sg\_alb\_public) | Security Group assigned to public-facing Application Load Balancers |
+| <a name="output_sg_ecs"></a> [sg\_ecs](#output\_sg\_ecs) | Security Group assigned to ECS Services |
+| <a name="output_sg_rds"></a> [sg\_rds](#output\_sg\_rds) | Security Group assigned to RDS instances |
+| <a name="output_target_group_arn"></a> [target\_group\_arn](#output\_target\_group\_arn) | ARN for the Target Group belonging to the ECS Web Service |
+| <a name="output_task_subnet"></a> [task\_subnet](#output\_task\_subnet) | Private AWS Subnet used for running database migration tasks |
+| <a name="output_worker_task_def_arn"></a> [worker\_task\_def\_arn](#output\_worker\_task\_def\_arn) | ARN for the ECS Task Definition for the Worker service used to run database migration tasks |
+| <a name="output_www_fqdn"></a> [www\_fqdn](#output\_www\_fqdn) | URL for the web application |
 <!-- END_TF_DOCS -->

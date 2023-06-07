@@ -83,7 +83,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.4.6
-          terraform_wrapper: false
+          terraform_wrapper: true
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -112,7 +112,7 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color -var-file="sandbox.tfvars"
+        run: terraform plan -no-color -detailed-exitcode | grep -E '(^.*[#~+-] .*|^[[:punct:]]|Plan)'
         continue-on-error: true
 
       - name: Find Comment
@@ -121,7 +121,7 @@ jobs:
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-author: 'github-actions[bot]'
-          body-includes: "Terraform"
+          body-includes: "Terraform Results"
 
       - name: Create comment
         if: steps.fc.outputs.comment-id == ''
@@ -133,6 +133,7 @@ jobs:
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
             Terraform Plan: *${{ steps.plan.outcome }}*
+            ${{ steps.plan.outputs.stdout }}
           reactions: 'eyes'
 
       - name: Update comment
@@ -145,6 +146,9 @@ jobs:
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
             Terraform Plan: *${{ steps.plan.outcome }}*
+            ```
+            ${{ steps.plan.outputs.stdout }}
+            ```
           reactions: 'eyes'
           edit-mode: replace
   

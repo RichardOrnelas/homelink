@@ -1,51 +1,64 @@
 output "sg_alb_public" {
-  value = aws_security_group.alb_public.id
+  value       = aws_security_group.alb_public.id
+  description = "Security Group assigned to public-facing Application Load Balancers"
 }
 
 output "sg_ecs" {
-  value = aws_security_group.ecs.id
+  description = "Security Group assigned to ECS Services"
+  value       = aws_security_group.ecs.id
 }
 
 output "sg_rds" {
-  value = aws_security_group.rds.id
+  description = "Security Group assigned to RDS instances"
+  value       = aws_security_group.rds.id
 }
 
 output "db_endpoint" {
-  value = "postgres://${aws_db_instance.primary.username}:password@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
+  description = "RDS instance endpoint URL as postgres URL"
+  value       = "postgres://${aws_db_instance.primary.username}:password@${aws_db_instance.primary.endpoint}/${aws_db_instance.primary.name}"
 }
 
 output "db_arn" {
-  value = aws_db_instance.primary.arn
+  description = "RDS PostGres database ARN"
+  value       = aws_db_instance.primary.arn
 }
 
 output "app_bucket" {
-  value = aws_s3_bucket.bucket.id
+  description = "Application AWS S3 bucket name"
+  value       = aws_s3_bucket.bucket.id
 }
 
 output "private_subnets" {
-  value = data.aws_subnets.private.ids
+  description = "List of private subnets imported from the VPC"
+  value       = data.aws_subnets.private.ids
 }
 
 output "public_subnets" {
-  value = data.aws_subnets.public.ids
+  description = "List of public subnets imported from the VPC"
+  value       = data.aws_subnets.public.ids
 }
 
 output "target_group_arn" {
-  value = aws_alb_target_group.http.arn
+  description = "ARN for the Target Group belonging to the ECS Web Service"
+  value       = aws_alb_target_group.http.arn
 }
 
 output "www_fqdn" {
-  value = aws_route53_record.www.fqdn
+  description = "URL for the web application"
+  value       = aws_route53_record.www.fqdn
 }
 
 output "worker_task_def_arn" {
-  value = aws_ecs_task_definition.worker.arn
+  description = "ARN for the ECS Task Definition for the Worker service used to run database migration tasks"
+  value       = aws_ecs_task_definition.worker.arn
 }
 
 output "ecs_cluster_name" {
-  value = aws_ecs_cluster.primary.name
+  description = "AWS ECS Cluster Name"
+  value       = aws_ecs_cluster.primary.name
 }
 
 output "task_subnet" {
-  value = data.aws_subnets.private.ids[0]
+  description = "Private AWS Subnet used for running database migration tasks"
+  value       = data.aws_subnets.private.ids[0]
 }

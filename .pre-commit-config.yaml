@@ -1,0 +1,12 @@
+repos:
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.74.1
+    hooks:
+      - id: terraform_validate
+        files: '.infrastructure/'
+      - id: terraform_fmt
+        files: '.infrastructure/'
+      - id: terraform_docs
+        files: '.infrastructure/'
+      # - id: terraform_tfsec
+      # - id: terraform_checkov
