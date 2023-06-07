@@ -113,10 +113,10 @@ jobs:
       - name: Terraform Plan
         id: plan
         run: |
-          terraform plan -no-color -var-file='sandbox.tfvars' >> tfplan.txt
+          terraform plan -no-color -out=tfplan.txt -var-file='sandbox.tfvars'
         continue-on-error: false
 
-      - name: Terraform Plan
+      - name: Terraform Output
         id: plan_output
         run: echo "plan=$(<tfplan.txt))" >> "$GITHUB_OUTPUT"
         continue-on-error: false
