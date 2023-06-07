@@ -113,9 +113,13 @@ jobs:
       - name: Terraform Plan
         id: plan
         run: |
-          echo "plan=$(terraform plan -no-color -var-file='sandbox.tfvars')" >> $GITHUB_OUTPUT 
-          terraform plan -no-color -var-file='sandbox.tfvars'
-        continue-on-error: true
+          terraform plan -no-color -var-file='sandbox.tfvars' >> tfplan.txt
+        continue-on-error: false
+
+      - name: Terraform Plan
+        id: plan_output
+        run: echo "plan=$(<tfplan.txt))" >> "$GITHUB_OUTPUT"
+        continue-on-error: false
 
       - name: Find Comment
         uses: peter-evans/find-comment@v2
@@ -134,7 +138,8 @@ jobs:
             ## Terraform Results
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
-            Terraform Plan: *${{ steps.plan.outputs.plan }}*
+            Terraform Plan: *${{ steps.plan.outputs.outcome }}*
+            ${{ steps.plan_output.outputs.plan }}
           reactions: 'eyes'
 
       - name: Update comment
@@ -146,7 +151,7 @@ jobs:
             ## Terraform Results
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
-            Terraform Plan: *${{ steps.plan.outcome }}*
+            Terraform Plan: *${{ steps.plan. }}*
           reactions: 'eyes'
           edit-mode: replace
   
