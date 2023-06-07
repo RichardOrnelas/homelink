@@ -151,7 +151,8 @@ jobs:
             ## Terraform Results
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
-            Terraform Plan: *${{ steps.plan. }}*
+            Terraform Plan: *${{ steps.plan.outputs.outcome }}*
+            ${{ steps.plan_output.outputs.plan }}
           reactions: 'eyes'
           edit-mode: replace
   
