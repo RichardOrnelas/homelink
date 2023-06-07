@@ -112,8 +112,7 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: |
-          terraform plan -no-color -var-file='sandbox.tfvars'
+        run: terraform plan -no-color -var-file='sandbox.tfvars'
         continue-on-error: false
 
       - name: Find Comment
@@ -133,7 +132,7 @@ jobs:
             ## Terraform Results
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
-            Terraform Plan: *${{ steps.plan.outputs.outcome }}*
+            Terraform Plan: *${{ steps.plan.outcome }}*
             ${{ steps.plan.outputs.stdout }}
           reactions: 'eyes'
 
@@ -146,7 +145,7 @@ jobs:
             ## Terraform Results
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
-            Terraform Plan: *${{ steps.plan.outputs.outcome }}*
+            Terraform Plan: *${{ steps.plan.outcome }}*
             ${{ steps.plan.outputs.stdout }}
           reactions: 'eyes'
           edit-mode: replace
