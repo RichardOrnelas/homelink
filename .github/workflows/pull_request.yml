@@ -112,7 +112,7 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color -var-file="sandbox.tfvars"
+        run: echo "plan=terraform plan -no-color -var-file='sandbox.tfvars'" >> $GITHUB_OUTPUT 
         continue-on-error: true
 
       - name: Find Comment
@@ -132,7 +132,7 @@ jobs:
             ## Terraform Results
             Terraform Format and Style: *${{ steps.fmt.outcome }}*
             Terraform Validation: *${{ steps.validate.outcome }}*
-            Terraform Plan: *${{ steps.plan.outcome }}*
+            Terraform Plan: *${{ steps.plan.outputs.plan }}*
           reactions: 'eyes'
 
       - name: Update comment
