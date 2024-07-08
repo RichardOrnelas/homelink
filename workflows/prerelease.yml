@@ -1,0 +1,163 @@
+name: "Deploy Staging Environment"
+
+on:
+  release:
+    types: [prereleased]
+
+jobs:
+  tag_image:
+    name: Re-Tag Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: staging
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@master
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Re-Tag Docker Image with Tag
+        run: |
+          echo "TAG: ${{ github.event.release.tag_name }}, COMMIT: ${{ github.sha }}"
+          MANIFEST=$(aws ecr batch-get-image --repository-name homelink --image-ids imageTag=${{ github.sha }} --output json | jq --raw-output --join-output '.images[0].imageManifest')
+          echo "Image Manifest $MANIFEST"
+          aws ecr put-image --repository-name homelink --image-tag ${{ github.event.release.tag_name }} --image-manifest "$MANIFEST"
+
+  deploy_staging:
+    name: Deploy Staging
+    needs: tag_image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency: 
+      group: staging
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: .infrastructure
+    outputs:
+      taskDefArn:     ${{ steps.tf_outputs.outputs.task }}
+      taskSubnet:     ${{ steps.tf_outputs.outputs.subnet }}
+      taskSG:         ${{ steps.tf_outputs.outputs.sg }}
+      wwwFQDN:        ${{ steps.tf_outputs.outputs.fqdn }}
+      ecsClusterName: ${{ steps.tf_outputs.outputs.cluster }}
+      dockerImage:    ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+     
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Workspace
+        id: workspace
+        run: terraform workspace select staging
+        continue-on-error: false
+
+      - name: Terraform Plan
+        id: plan
+        env: 
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}
+        run: terraform plan -no-color -var-file="staging.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}"
+        continue-on-error: false
+
+      - name: Send custom JSON data to Slack workflow
+        id: start_slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          # This data can be any valid JSON from a previous step in the GitHub Action
+          payload: |
+            {
+             "text": "*staging.chainlink.deepseas.com* deployment started"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Terraform Apply
+        id: apply
+        env: 
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.event.release.tag_name }}
+        run: terraform apply -no-color -var-file="staging.tfvars" -var="docker_image=${{env.TF_VAR_docker_image}}" --auto-approve
+        continue-on-error: false
+
+      - name: Set Outputs
+        id: tf_outputs
+        run: |
+          echo "task=$(terraform output -raw worker_task_def_arn)" >> "$GITHUB_OUTPUT"
+          echo "subnet=$(terraform output -raw task_subnet)" >> "$GITHUB_OUTPUT"
+          echo "sg=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
+          echo "fqdn=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
+          echo "cluster=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+
+  migration:
+    name: Setup database
+    needs: deploy_staging
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}-migration-env
+      cancel-in-progress: false
+    steps: 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Run Migration Task
+        id: db-migration
+        continue-on-error: true
+        run: |
+          echo "Running task with Task Definition ARN ${{ needs.deploy_staging.outputs.taskDefArn }}"
+          TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_staging.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
+          --task-definition ${{ needs.deploy_staging.outputs.taskDefArn }} \
+          --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_staging.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_staging.outputs.taskSG }}\"]}}" \
+          --overrides "{\"containerOverrides\":[{\"name\":\"homelink-worker\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}" --output text --query tasks[0].taskArn)
+          echo "Task started successfully. ARN: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster ${{ needs.deploy_staging.outputs.ecsClusterName }} --tasks $TASK_ARN
+          
+  notify:
+    name: Send Slack Notification
+    needs: migration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send custom JSON data to Slack workflow
+        id: start_slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          # This data can be any valid JSON from a previous step in the GitHub Action
+          payload: |
+            {
+             "text": "*staging.chainlink.deepseas.com* deployment completed"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

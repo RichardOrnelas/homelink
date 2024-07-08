@@ -1,0 +1,6 @@
+infrastructure: './infrastructure/**/*'
+backend: app/**
+test: '**/**.rspec'
+ci: .github/**/*
+docs: README.md
+

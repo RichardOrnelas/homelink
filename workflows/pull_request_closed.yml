@@ -1,0 +1,57 @@
+name: "Test Environment Cleanup"
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [closed]
+  
+jobs:
+  destroy_test_env:
+    runs-on: ubuntu-latest
+    permissions: 
+      contents: read
+    # should limit to one test run per branch that is PR'd
+    concurrency:
+      group: ${{ github.ref }}-test-env
+      cancel-in-progress: false
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/hive_test
+      DEFAULT_QUEUE: foo
+      HMAC_SECRET: 59c45944ec6025c526a68ae8ada55534a99083af0c287e97dabcd92b97d3e1e111fa2386ce7201c008d13fcc495ad0a56838a1e66e022b668ebbffcd99aadb1b
+    defaults:
+      run:
+        working-directory: .infrastructure
+    steps: 
+      - uses: actions/checkout@master
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.4.6
+          terraform_wrapper: false
+          
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Select Terraform Workspace
+        id: workspace
+        run: terraform workspace select "pr-${{ github.event.number }}"
+
+      - name: Terraform Destroy
+        id: destroy
+        run: terraform destroy --auto-approve
+        continue-on-error: false
+
+      - name: Delete Terraform Workspace
+        id: workspace-destroy
+        run: |
+          terraform workspace select default
+          terraform workspace delete "pr-${{ github.event.number }}"
+        continue-on-error: false

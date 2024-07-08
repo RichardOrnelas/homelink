@@ -1,0 +1,107 @@
+name: "Rollback Environment"
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      tag:
+        description: 'Tag to rollback to'
+        required: true
+        type: string
+      rollback:
+        description: 'DB Rollback required?'
+        required: true
+        type: boolean
+
+jobs:
+  validate:
+    name: Validate Image
+    runs-on: ubuntu-latest
+    outputs:
+      diskImage:     ${{ steps.tf_outputs.outputs.task }}
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Validate Docker Image with Tag
+        id: docker
+        run: aws ecr batch-get-image --repository-name homelink --image-ids imageTag=${{ inputs.tag }} --output json | jq --raw-output --join-output '.images[0].imageManifest'
+        continue-on-error: false
+      
+      - name: Set Output
+        id: outputs
+        env: 
+          docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ inputs.tag }}
+        run: echo "diskImage=$docker_image" >> "$GITHUB_OUTPUT"
+          
+  rollback:
+    name: Rollback Environment
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+        with:
+          ref: ref/tags/${{ inputs.tag }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+      
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Workspace
+        id: workspace
+        run: terraform workspace select production
+        continue-on-error: false
+
+      - name: Send custom JSON data to Slack workflow
+        id: start_slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          # This data can be any valid JSON from a previous step in the GitHub Action
+          payload: |
+            {
+             "text": "*chainlink.deepseas.com* deployment started"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Terraform Apply
+        id: apply
+        env: 
+          TF_VAR_docker_image: ${{ needs.validate.outputs.diskImage }}
+        run: terraform apply -no-color -var-file="${{inputs.environment}}.tfvars" -var="docker_image=${{ env.TF_VAR_docker_image }}" --auto-approve
+        continue-on-error: false
+      
+      - name: Send custom JSON data to Slack workflow
+        id: complete_slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          # This data can be any valid JSON from a previous step in the GitHub Action
+          payload: |
+            {
+             "text": "*chainlink.deepseas.com* deployment completed"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

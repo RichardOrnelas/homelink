@@ -1,0 +1,358 @@
+name: "PR Test Environment"
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, reopened, synchronize]
+
+jobs:
+  label:
+    name: Label Pull Request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/labeler@v4
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          dot: true
+
+  tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    permissions: 
+      contents: read
+    # should limit to one test run per branch that is PR'd
+    concurrency:
+      group: ${{github.head_ref}}-tests
+      cancel-in-progress: true
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/hive_test
+      DEFAULT_QUEUE: foo
+      HMAC_SECRET: 59c45944ec6025c526a68ae8ada55534a99083af0c287e97dabcd92b97d3e1e111fa2386ce7201c008d13fcc495ad0a56838a1e66e022b668ebbffcd99aadb1b
+
+    services:
+      postgres:
+        image: postgres:15
+        ports: ["5432:5432"]
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis
+        ports: ["6379:6379"]
+
+    steps:
+      - uses: actions/checkout@master
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+          
+      - name: Install PostgreSQL
+        run: sudo apt-get -yqq install libpq-dev poppler-utils
+
+      - name: Run Bundle Install
+        run: |
+          gem install poppler
+          bundle install --jobs 4 --retry 3
+
+      - name: Setup Database
+        run: bin/rails db:create db:migrate;
+
+      - name: Run RSpec Tests
+        run: |
+          bundle exec rspec --exclude-pattern 'spec/controllers/*.rb'
+
+  terraform_plan:
+    name: Terraform Plan
+    if: ${{ ! github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}-tf-plan
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: .infrastructure
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@master
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.4.6
+          terraform_wrapper: true
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Terraform fmt
+        id: fmt
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Workspace
+        id: workspace
+        run: terraform workspace select sandbox
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -detailed-exitcode | grep -E '(^.*[#~+-] .*|^[[:punct:]]|Plan)'
+        continue-on-error: true
+
+      - name: Find Comment
+        uses: peter-evans/find-comment@v2
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: "Terraform Results"
+
+      - name: Create comment
+        if: steps.fc.outputs.comment-id == ''
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Terraform Results
+            Terraform Format and Style: *${{ steps.fmt.outcome }}*
+            Terraform Validation: *${{ steps.validate.outcome }}*
+            Terraform Plan: *${{ steps.plan.outcome }}*
+            ${{ steps.plan.outputs.stdout }}
+          reactions: 'eyes'
+
+      - name: Update comment
+        if: steps.fc.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          body: |
+            ## Terraform Results
+            Terraform Format and Style: *${{ steps.fmt.outcome }}*
+            Terraform Validation: *${{ steps.validate.outcome }}*
+            Terraform Plan: *${{ steps.plan.outcome }}*
+            ```
+            ${{ steps.plan.outputs.stdout }}
+            ```
+          reactions: 'eyes'
+          edit-mode: replace
+  
+  build_docker_image:
+    name: Build Docker Image
+    if: ${{ ! github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v2
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: set up Docker Build
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver: docker-container
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      - name: build the Docker image and Push
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy_test_env:
+    name: Deploy Test Environment
+    if: ${{ ! github.event.pull_request.draft }}
+    needs: 
+      - terraform_plan
+      - build_docker_image
+      - tests
+      - label
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}-test-env
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: .infrastructure
+    permissions:
+      pull-requests: write
+      contents: read
+    outputs:
+      taskDefArn:     ${{ steps.tf_outputs.outputs.task }}
+      taskSubnet:     ${{ steps.tf_outputs.outputs.subnet }}
+      taskSG:         ${{ steps.tf_outputs.outputs.sg }}
+      wwwFQDN:        ${{ steps.tf_outputs.outputs.fqdn }}
+      ecsClusterName: ${{ steps.tf_outputs.outputs.cluster }}
+      dockerImage:    ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
+    steps: 
+      - uses: actions/checkout@master
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.4.6
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Select Terraform Workspace
+        id: workspace_select 
+        run: terraform workspace select -or-create=true "pr-${{ github.event.number }}"
+        continue-on-error: true  
+
+      - name: Terraform Apply
+        id: apply
+        env: 
+          TF_VAR_docker_image: ${{ steps.login-ecr.outputs.registry }}/homelink:${{ github.sha }}
+        run: terraform apply --auto-approve
+        continue-on-error: false
+        
+      - name: Set Outputs
+        id: tf_outputs
+        run: |
+          echo "task=$(terraform output -raw worker_task_def_arn)" >> "$GITHUB_OUTPUT"
+          echo "subnet=$(terraform output -raw task_subnet)" >> "$GITHUB_OUTPUT"
+          echo "sg=$(terraform output -raw sg_ecs)" >> "$GITHUB_OUTPUT"
+          echo "fqdn=$(terraform output -raw www_fqdn)" >> "$GITHUB_OUTPUT"
+          echo "cluster=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+
+  migration:
+    name: Setup database
+    needs: deploy_test_env
+    if: ${{ ! github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}-migration-env
+      cancel-in-progress: false
+    steps: 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: false
+
+      - name: Run Migration Task
+        id: db-migration
+        continue-on-error: true
+        run: |
+          echo "Running task with Task Definition ARN ${{ needs.deploy_test_env.outputs.taskDefArn }}"
+          TASK_ARN=$(aws ecs run-task --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --count 1 --launch-type FARGATE \
+          --task-definition ${{ needs.deploy_test_env.outputs.taskDefArn }} \
+          --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"${{ needs.deploy_test_env.outputs.taskSubnet }}\"],\"securityGroups\":[\"${{ needs.deploy_test_env.outputs.taskSG }}\"]}}" \
+          --overrides "{\"containerOverrides\":[{\"name\":\"homelink-worker\",\"command\":[\"bundle\",\"exec\",\"rails\",\"db:setup\"]}]}" --output text --query tasks[0].taskArn)
+          echo "Task started successfully. ARN: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster ${{ needs.deploy_test_env.outputs.ecsClusterName }} --tasks $TASK_ARN
+  
+  comment:
+    name: Comment on Pull Request
+    needs: migration
+    if: ${{ ! github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}-migration-env
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: .infrastructure
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Find Comment
+        uses: peter-evans/find-comment@v2
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: "Deployed!"
+
+      - name: Create comment
+        if: steps.fc.outputs.comment-id == ''
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Pull Request Deployed!
+            Preview URL: **[${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})**
+            Docker Image: **${{ needs.deploy_test_env.outputs.dockerImage }}**
+            ECS Cluster: **${{ needs.deploy_test_env.outputs.ecsClusterName }}**
+            Terraform Workspace: **${{ needs.deploy_test_env.outputs.ecsClusterName }}**
+
+            To check out the workspace locally, checkout this branch and...
+            ```
+            cd .infrastructure
+            terraform init
+            terraform workspace select ${{ needs.deploy_test_env.outputs.ecsClusterName }}
+            terraform plan
+            ```
+          reactions: 'hooray'
+
+      - name: Update comment
+        if: steps.fc.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          body: |
+            ## Pull Request Deployed!
+            Preview URL: **[${{ needs.deploy_test_env.outputs.wwwFQDN}}](https://${{ needs.deploy_test_env.outputs.wwwFQDN}})**
+            Docker Image: **${{ needs.deploy_test_env.outputs.dockerImage }}**
+            ECS Cluster: **${{ needs.deploy_test_env.outputs.ecsClusterName }}**
+            Terraform Workspace: **${{ needs.deploy_test_env.outputs.ecsClusterName }}**
+
+            To check out the workspace locally, checkout this branch and...
+            ```
+            cd .infrastructure
+            terraform init
+            terraform workspace select ${{ needs.deploy_test_env.outputs.ecsClusterName }}
+            terraform plan
+            ```
+          reactions: 'hooray'
+          edit-mode: replace
